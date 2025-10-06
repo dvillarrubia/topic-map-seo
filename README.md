@@ -39,18 +39,64 @@ Sistema de clustering semántico para visualizar keywords SEO en mapas interacti
 
 ## 📦 Instalación
 
-### Requisitos Previos
+### Opción 1: Docker (Recomendado para VPS)
 
+#### Requisitos Previos
+- Docker 20.10+
+- Docker Compose 2.0+
+- 2GB RAM mínimo
+- 5GB espacio en disco
+
+#### Deployment Rápido
+
+```bash
+# Clonar repositorio
+git clone https://github.com/dvillarrubia/topic-map-seo.git
+cd topic-map-seo
+
+# Deploy automático
+chmod +x deploy.sh
+sudo ./deploy.sh
+```
+
+El script automáticamente:
+- ✅ Clona/actualiza el código
+- ✅ Construye las imágenes Docker
+- ✅ Configura Nginx como reverse proxy
+- ✅ Descarga el modelo de embeddings
+- ✅ Inicia los servicios
+
+**Acceso:**
+- Frontend: `http://tu-vps-ip`
+- API: `http://tu-vps-ip/api`
+- Health: `http://tu-vps-ip/api/health`
+
+#### Deployment Manual
+
+```bash
+# Build y start
+docker-compose up -d
+
+# Ver logs
+docker-compose logs -f topic-map-api
+
+# Detener
+docker-compose down
+```
+
+### Opción 2: Instalación Local (Desarrollo)
+
+#### Requisitos Previos
 - Python 3.8+
 - Git
-- Navegador web moderno (Chrome, Firefox, Edge)
+- Navegador web moderno
 
-### Setup
+#### Setup
 
 1. **Clonar repositorio**
 ```bash
-git clone <repository-url>
-cd "Mapa clustering"
+git clone https://github.com/dvillarrubia/topic-map-seo.git
+cd topic-map-seo
 ```
 
 2. **Crear entorno virtual**
@@ -62,7 +108,7 @@ source venv/Scripts/activate  # Windows
 
 3. **Instalar dependencias**
 ```bash
-pip install pandas openpyxl sentence-transformers torch umap-learn flask flask-cors
+pip install -r requirements.txt
 ```
 
 4. **Iniciar servidor**
@@ -234,24 +280,75 @@ Verificar estado del servidor
 
 ## 🐛 Troubleshooting
 
-### Error: "No module named 'flask_cors'"
+### Docker
+
+#### Error: "Cannot connect to Docker daemon"
 ```bash
-pip install flask flask-cors
+sudo systemctl start docker
+sudo systemctl enable docker
 ```
 
-### Error: "Servidor Python no detectado"
+#### Contenedor se detiene inmediatamente
+```bash
+# Ver logs detallados
+docker-compose logs topic-map-api
+
+# Verificar recursos
+docker stats
+```
+
+#### Puerto 80/443 ya en uso
+```bash
+# Cambiar puerto en docker-compose.yml
+ports:
+  - "8080:80"  # Usar puerto 8080 en lugar de 80
+```
+
+#### Modelo no se descarga (error de red)
+```bash
+# Descargar manualmente dentro del contenedor
+docker-compose exec topic-map-api bash
+python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('hiiamsid/sentence_similarity_spanish_es')"
+```
+
+### Local
+
+#### Error: "No module named 'flask_cors'"
+```bash
+pip install -r requirements.txt
+```
+
+#### Error: "Servidor Python no detectado"
 - Verificar que `clustering_server.py` esté corriendo
 - Comprobar consola del servidor en `http://localhost:5000/health`
 
-### Keywords muy juntas aunque sean diferentes
+#### Keywords muy juntas aunque sean diferentes
 - Ajustar `n_neighbors` (bajar a 5-8)
 - Aumentar `min_dist` (subir a 0.5-0.7)
 - Reiniciar servidor después de cambios
 
-### Labels no aparecen al hacer zoom
+#### Labels no aparecen al hacer zoom
 - Verificar zoom > 2x
 - Comprobar consola del navegador por errores
 - Refrescar página (Ctrl+F5)
+
+### VPS
+
+#### Conexión rechazada desde navegador
+```bash
+# Verificar firewall
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+
+# Verificar servicios
+sudo docker-compose ps
+curl http://localhost/api/health
+```
+
+#### Performance lento con muchas keywords
+- Aumentar RAM del VPS (mínimo 4GB recomendado)
+- Reducir `n_neighbors` en UMAP
+- Considerar cachear resultados procesados
 
 ## 🛣️ Roadmap
 

@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  topic-map-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: topic-map-api
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Persistir modelo descargado entre reinicios
+      - model-cache:/home/appuser/.cache/torch
+      # Opcional: mapear uploads si quieres persistencia
+      - ./uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - topic-map-network
+
+  # Nginx reverse proxy (opcional pero recomendado)
+  nginx:
+    image: nginx:alpine
+    container_name: topic-map-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./static:/usr/share/nginx/html:ro
+      - ./ssl:/etc/nginx/ssl:ro  # Para HTTPS
+    depends_on:
+      - topic-map-api
+    networks:
+      - topic-map-network
+
+volumes:
+  model-cache:
+    driver: local
+
+networks:
+  topic-map-network:
+    driver: bridge
