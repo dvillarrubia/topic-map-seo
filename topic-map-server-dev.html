@@ -367,7 +367,10 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
 
-        const API_URL = 'http://localhost:5000';
+        // Auto-detectar si estamos en desarrollo local o producción
+        const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? 'http://localhost:5000'
+            : '/topic-map/api';
 
         const TOPIC_COLOR_PALETTE = [
             '#667eea', '#f093fb', '#4facfe', '#43e97b', '#fa709a', '#feca57',
