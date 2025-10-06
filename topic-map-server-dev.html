@@ -1,0 +1,1454 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚧 Topic Map DEV - Python Backend</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+
+        .controls {
+            padding: 30px 40px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.9em;
+        }
+
+        .control-group select,
+        .control-group input[type="number"],
+        .control-group button {
+            padding: 10px 15px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 1em;
+            background: white;
+            transition: all 0.3s;
+        }
+
+        .control-group button {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .control-group button:hover {
+            background: #5568d3;
+        }
+
+        .control-group button:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+
+        .chart-container {
+            padding: 40px;
+            min-height: 700px;
+        }
+
+        .legend {
+            padding: 20px 40px;
+            background: #f8f9fa;
+            border-top: 2px solid #e9ecef;
+        }
+
+        .legend-title {
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #495057;
+        }
+
+        .legend-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .legend-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .legend-item.inactive {
+            opacity: 0.3;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px;
+            font-size: 1.2em;
+            color: #667eea;
+        }
+
+        .centroid {
+            cursor: pointer;
+        }
+
+        .centroid-label {
+            font-weight: 700;
+            font-size: 14px;
+            fill: #2d3436;
+            pointer-events: none;
+            text-shadow: 1px 1px 2px white, -1px -1px 2px white, 1px -1px 2px white, -1px 1px 2px white;
+        }
+
+        .general-topic {
+            cursor: pointer;
+        }
+
+        .general-topic-label {
+            font-weight: 800;
+            font-size: 16px;
+            fill: #e74c3c;
+            pointer-events: none;
+            text-shadow: 2px 2px 3px white, -2px -2px 3px white, 2px -2px 3px white, -2px 2px 3px white;
+        }
+
+        .topic-input-section {
+            padding: 20px 40px;
+            background: #fff3cd;
+            border-bottom: 2px solid #ffc107;
+        }
+
+        .topic-input-container {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .topic-input {
+            flex: 1;
+            min-width: 300px;
+            padding: 10px 15px;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            font-size: 1em;
+        }
+
+        .topic-chips {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .topic-chip {
+            background: #e74c3c;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .topic-chip-remove {
+            cursor: pointer;
+            font-weight: bold;
+            margin-left: 4px;
+        }
+
+        .topic-chip-remove:hover {
+            transform: scale(1.2);
+        }
+
+        .tooltip-custom {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border: 2px solid #667eea;
+            max-width: 300px;
+        }
+
+        .tooltip-custom .keyword {
+            font-weight: 700;
+            font-size: 1.1em;
+            color: #667eea;
+            margin-bottom: 10px;
+            word-break: break-word;
+        }
+
+        .tooltip-custom .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 0.9em;
+        }
+
+        .tooltip-custom .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .tooltip-custom .label {
+            color: #6c757d;
+            font-weight: 500;
+        }
+
+        .tooltip-custom .value {
+            font-weight: 600;
+            color: #212529;
+        }
+
+        .dataset-section {
+            padding: 20px 40px;
+            background: #e3f2fd;
+            border-bottom: 2px solid #2196f3;
+        }
+
+        .dataset-chips {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .dataset-chip {
+            background: white;
+            color: #2196f3;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 2px solid #2196f3;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .dataset-chip:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(33, 150, 243, 0.3);
+        }
+
+        .dataset-chip.inactive {
+            opacity: 0.4;
+            background: #f5f5f5;
+            border-color: #bdbdbd;
+        }
+
+        .dataset-chip-remove {
+            cursor: pointer;
+            font-weight: bold;
+            color: #f44336;
+            margin-left: 4px;
+            font-size: 1.1em;
+        }
+
+        .dataset-chip-remove:hover {
+            transform: scale(1.3);
+        }
+
+        .dataset-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        /* Scroll bar personalizado */
+        .legend-items::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .legend-items::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .legend-items::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 10px;
+        }
+
+        .legend-items::-webkit-scrollbar-thumb:hover {
+            background: #5568d3;
+        }
+
+        /* Estilos para controles de zoom */
+        .zoom-control-btn {
+            transition: all 0.2s ease;
+        }
+
+        .zoom-control-btn:hover {
+            background: #667eea !important;
+            color: white !important;
+            transform: scale(1.1);
+        }
+
+        .zoom-control-btn:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        const API_URL = 'http://localhost:5000';
+
+        const TOPIC_COLOR_PALETTE = [
+            '#667eea', '#f093fb', '#4facfe', '#43e97b', '#fa709a', '#feca57',
+            '#ff6b6b', '#48dbfb', '#ff9ff3', '#54a0ff', '#00d2d3', '#5f27cd',
+            '#ee5a6f', '#f368e0', '#ff9f43', '#10ac84', '#576574', '#341f97',
+            '#2e86de', '#ff6348', '#7bed9f', '#70a1ff', '#eccc68', '#c44569',
+            '#f8b500', '#6c5ce7', '#fd79a8', '#00b894', '#0984e3', '#e17055'
+        ];
+
+        let TOPIC_COLOR_MAP = {};
+
+        function getTopicColor(topic, allTopics) {
+            if (Object.keys(TOPIC_COLOR_MAP).length === 0 && allTopics) {
+                allTopics.forEach((t, index) => {
+                    TOPIC_COLOR_MAP[t] = TOPIC_COLOR_PALETTE[index % TOPIC_COLOR_PALETTE.length];
+                });
+            }
+            return TOPIC_COLOR_MAP[topic] || TOPIC_COLOR_PALETTE[0];
+        }
+
+        function TopicMapChart({ data, centroids, generalTopics, width, height, allTopics, showCentroids, onBubbleHover }) {
+            const svgRef = useRef();
+            const containerRef = useRef();
+            const zoomRef = useRef();
+
+            useEffect(() => {
+                if (!data || data.length === 0) return;
+
+                const svg = d3.select(svgRef.current);
+                svg.selectAll('*').remove();
+
+                const margin = { top: 40, right: 60, bottom: 60, left: 80 };
+                const innerWidth = width - margin.left - margin.right;
+                const innerHeight = height - margin.top - margin.bottom;
+
+                // Crear grupo principal con transform para margin
+                const mainG = svg.append('g')
+                    .attr('transform', `translate(${margin.left},${margin.top})`);
+
+                // Crear grupo zoomable dentro del grupo principal
+                const g = mainG.append('g')
+                    .attr('class', 'zoomable-group');
+
+                // Prevenir NaN en escalas si todos los valores son iguales o indefinidos
+                const xExtent = d3.extent(data, d => d.x);
+                const yExtent = d3.extent(data, d => d.y);
+
+                const xScale = d3.scaleLinear()
+                    .domain([
+                        (xExtent[0] || 0) * 1.1,
+                        (xExtent[1] || 0) * 1.1 || 1
+                    ])
+                    .range([0, innerWidth]);
+
+                const yScale = d3.scaleLinear()
+                    .domain([
+                        (yExtent[0] || 0) * 1.1,
+                        (yExtent[1] || 0) * 1.1 || 1
+                    ])
+                    .range([innerHeight, 0]);
+
+                const sizeScale = d3.scaleSqrt()
+                    .domain([0, d3.max(data, d => d.traffic) || 100])
+                    .range([4, 30]);
+
+                // Grid
+                g.append('g')
+                    .attr('class', 'grid')
+                    .attr('transform', `translate(0,${innerHeight})`)
+                    .call(d3.axisBottom(xScale).tickSize(-innerHeight).tickFormat(''))
+                    .style('stroke', '#e0e0e0')
+                    .style('stroke-dasharray', '3,3');
+
+                g.append('g')
+                    .attr('class', 'grid')
+                    .call(d3.axisLeft(yScale).tickSize(-innerWidth).tickFormat(''))
+                    .style('stroke', '#e0e0e0')
+                    .style('stroke-dasharray', '3,3');
+
+                // Ejes
+                g.append('g')
+                    .attr('transform', `translate(0,${innerHeight})`)
+                    .call(d3.axisBottom(xScale).ticks(6))
+                    .style('font-size', '12px');
+
+                g.append('g')
+                    .call(d3.axisLeft(yScale).ticks(6))
+                    .style('font-size', '12px');
+
+                // Labels de ejes
+                g.append('text')
+                    .attr('x', innerWidth / 2)
+                    .attr('y', innerHeight + 45)
+                    .attr('text-anchor', 'middle')
+                    .style('font-weight', '600')
+                    .style('font-size', '14px')
+                    .text('UMAP Dimensión 1 (Python)');
+
+                g.append('text')
+                    .attr('transform', 'rotate(-90)')
+                    .attr('x', -innerHeight / 2)
+                    .attr('y', -55)
+                    .attr('text-anchor', 'middle')
+                    .style('font-weight', '600')
+                    .style('font-size', '14px')
+                    .text('UMAP Dimensión 2');
+
+                // Keywords (burbujas)
+                const bubbles = g.selectAll('.bubble')
+                    .data(data)
+                    .enter()
+                    .append('circle')
+                    .attr('class', 'bubble')
+                    .attr('cx', d => xScale(d.x))
+                    .attr('cy', d => yScale(d.y))
+                    .attr('r', d => sizeScale(d.traffic))
+                    .attr('fill', d => getTopicColor(d.topic, allTopics))
+                    .attr('opacity', 0.6)
+                    .attr('stroke', d => getTopicColor(d.topic, allTopics))
+                    .attr('stroke-width', 1)
+                    .style('cursor', 'pointer');
+                    // Los event handlers se configuran en un useEffect separado
+
+                // Labels de keywords (aparecen al hacer zoom)
+                const bubbleLabels = g.selectAll('.bubble-label')
+                    .data(data)
+                    .enter()
+                    .append('text')
+                    .attr('class', 'bubble-label')
+                    .attr('x', d => xScale(d.x))
+                    .attr('y', d => yScale(d.y) - sizeScale(d.traffic) - 3)
+                    .attr('text-anchor', 'middle')
+                    .attr('font-size', '10px')
+                    .attr('font-weight', '600')
+                    .attr('fill', '#2d3436')
+                    .attr('opacity', 0) // Inicialmente ocultos
+                    .attr('pointer-events', 'none')
+                    .style('text-shadow', '1px 1px 2px white, -1px -1px 2px white')
+                    .text(d => d.keyword.length > 30 ? d.keyword.substring(0, 30) + '...' : d.keyword);
+
+                // Centroides
+                if (showCentroids && centroids && centroids.length > 0) {
+                    // Círculos de centroides
+                    g.selectAll('.centroid')
+                        .data(centroids)
+                        .enter()
+                        .append('circle')
+                        .attr('class', 'centroid')
+                        .attr('cx', d => xScale(d.x))
+                        .attr('cy', d => yScale(d.y))
+                        .attr('r', 20)
+                        .attr('fill', d => getTopicColor(d.topic, allTopics))
+                        .attr('opacity', 0.9)
+                        .attr('stroke', '#2d3436')
+                        .attr('stroke-width', 3);
+
+                    // Labels de centroides
+                    g.selectAll('.centroid-label')
+                        .data(centroids)
+                        .enter()
+                        .append('text')
+                        .attr('class', 'centroid-label')
+                        .attr('x', d => xScale(d.x))
+                        .attr('y', d => yScale(d.y) - 25)
+                        .attr('text-anchor', 'middle')
+                        .text(d => `${d.topic} (${d.count})`);
+                }
+
+                // Topics Generales (estrellas rojas)
+                if (generalTopics && generalTopics.length > 0) {
+                    // Estrellas para topics generales
+                    g.selectAll('.general-topic')
+                        .data(generalTopics)
+                        .enter()
+                        .append('path')
+                        .attr('class', 'general-topic')
+                        .attr('d', d3.symbol().type(d3.symbolStar).size(500))
+                        .attr('transform', d => `translate(${xScale(d.x)},${yScale(d.y)})`)
+                        .attr('fill', '#e74c3c')
+                        .attr('opacity', 0.9)
+                        .attr('stroke', '#c0392b')
+                        .attr('stroke-width', 3);
+
+                    // Labels de topics generales
+                    g.selectAll('.general-topic-label')
+                        .data(generalTopics)
+                        .enter()
+                        .append('text')
+                        .attr('class', 'general-topic-label')
+                        .attr('x', d => xScale(d.x))
+                        .attr('y', d => yScale(d.y) - 30)
+                        .attr('text-anchor', 'middle')
+                        .text(d => d.topic);
+                }
+
+                // ===== CONFIGURAR ZOOM Y PAN =====
+                const zoom = d3.zoom()
+                    .scaleExtent([0.5, 10]) // Mínimo 50% zoom out, máximo 1000% zoom in
+                    .on('zoom', (event) => {
+                        const transform = event.transform;
+                        g.attr('transform', transform);
+
+                        // Ajustar visibilidad de labels según nivel de zoom
+                        const scale = transform.k;
+
+                        // Mostrar labels de burbujas cuando zoom > 2x
+                        g.selectAll('.bubble-label')
+                            .attr('opacity', scale > 2 ? Math.min((scale - 2) / 2, 1) : 0)
+                            .attr('font-size', `${10 / scale}px`); // Compensar zoom para mantener tamaño
+
+                        // Ajustar stroke de burbujas para que se vean mejor al hacer zoom
+                        g.selectAll('.bubble')
+                            .attr('stroke-width', 1 / scale); // Mantener grosor visual constante
+
+                        // Ajustar stroke de centroides
+                        g.selectAll('.centroid')
+                            .attr('stroke-width', 3 / scale);
+
+                        // Ajustar labels de centroides
+                        g.selectAll('.centroid-label')
+                            .attr('font-size', `${14 / scale}px`);
+
+                        // Ajustar labels de topics generales
+                        g.selectAll('.general-topic-label')
+                            .attr('font-size', `${16 / scale}px`);
+                    });
+
+                // Aplicar zoom al SVG completo
+                svg.call(zoom);
+
+                // Guardar referencia al zoom para poder resetear
+                zoomRef.current = zoom;
+
+                // Resetear zoom al doble click
+                svg.on('dblclick.zoom', () => {
+                    svg.transition()
+                        .duration(750)
+                        .call(zoom.transform, d3.zoomIdentity);
+                });
+
+            }, [data, centroids, generalTopics, width, height, allTopics, showCentroids]);
+
+            // useEffect separado para manejar onBubbleHover sin resetear el zoom
+            useEffect(() => {
+                if (!data || data.length === 0) return;
+
+                const svg = d3.select(svgRef.current);
+                const bubbles = svg.selectAll('.bubble');
+
+                // Actualizar solo los event handlers
+                bubbles
+                    .on('mouseover', function(event, d) {
+                        d3.select(this)
+                            .transition()
+                            .duration(200)
+                            .attr('opacity', 1)
+                            .attr('stroke-width', 3);
+                        onBubbleHover(event, d);
+                    })
+                    .on('mousemove', function(event, d) {
+                        onBubbleHover(event, d);
+                    })
+                    .on('mouseleave', function(event) {
+                        d3.select(this)
+                            .transition()
+                            .duration(200)
+                            .attr('opacity', 0.6)
+                            .attr('stroke-width', 1);
+                        onBubbleHover(null, null);
+                    });
+            }, [onBubbleHover]);
+
+            // Limpiar tooltip cuando el mouse sale del SVG
+            useEffect(() => {
+                const handleMouseLeave = () => {
+                    onBubbleHover(null, null);
+                };
+
+                const svgElement = svgRef.current;
+                if (svgElement) {
+                    svgElement.addEventListener('mouseleave', handleMouseLeave);
+                    return () => {
+                        svgElement.removeEventListener('mouseleave', handleMouseLeave);
+                    };
+                }
+            }, [onBubbleHover]);
+
+            return (
+                <div style={{ position: 'relative' }}>
+                    <svg ref={svgRef} width={width} height={height} />
+
+                    {/* Controles de Zoom */}
+                    <div style={{
+                        position: 'absolute',
+                        top: '10px',
+                        right: '10px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '5px',
+                        zIndex: 10
+                    }}>
+                        <button
+                            className="zoom-control-btn"
+                            onClick={() => {
+                                const svg = d3.select(svgRef.current);
+                                svg.transition().duration(300).call(zoomRef.current.scaleBy, 1.3);
+                            }}
+                            style={{
+                                width: '40px',
+                                height: '40px',
+                                background: 'white',
+                                border: '2px solid #667eea',
+                                borderRadius: '5px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                fontWeight: 'bold',
+                                color: '#667eea',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                            }}
+                            title="Zoom In"
+                        >
+                            +
+                        </button>
+                        <button
+                            className="zoom-control-btn"
+                            onClick={() => {
+                                const svg = d3.select(svgRef.current);
+                                svg.transition().duration(300).call(zoomRef.current.scaleBy, 0.7);
+                            }}
+                            style={{
+                                width: '40px',
+                                height: '40px',
+                                background: 'white',
+                                border: '2px solid #667eea',
+                                borderRadius: '5px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                fontWeight: 'bold',
+                                color: '#667eea',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                            }}
+                            title="Zoom Out"
+                        >
+                            −
+                        </button>
+                        <button
+                            className="zoom-control-btn"
+                            onClick={() => {
+                                const svg = d3.select(svgRef.current);
+                                svg.transition().duration(750).call(zoomRef.current.transform, d3.zoomIdentity);
+                            }}
+                            style={{
+                                width: '40px',
+                                height: '40px',
+                                background: 'white',
+                                border: '2px solid #667eea',
+                                borderRadius: '5px',
+                                cursor: 'pointer',
+                                fontSize: '16px',
+                                fontWeight: 'bold',
+                                color: '#667eea',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                            }}
+                            title="Reset Zoom (también: doble click en el mapa)"
+                        >
+                            ⟲
+                        </button>
+                    </div>
+
+                    {/* Instrucciones de uso */}
+                    <div style={{
+                        position: 'absolute',
+                        bottom: '10px',
+                        left: '10px',
+                        background: 'rgba(255, 255, 255, 0.9)',
+                        padding: '10px 15px',
+                        borderRadius: '8px',
+                        fontSize: '0.85em',
+                        color: '#495057',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                        zIndex: 10
+                    }}>
+                        <strong>💡 Navegación:</strong> Rueda = Zoom | Arrastrar = Mover | Doble click = Resetear<br/>
+                        <strong>🔍 Zoom 2x+:</strong> Muestra labels de keywords
+                    </div>
+                </div>
+            );
+        }
+
+        function App() {
+            // Estados para múltiples archivos
+            const [datasets, setDatasets] = useState([]); // Array de {fileName, data, centroids, topics, file}
+            const [selectedDatasets, setSelectedDatasets] = useState(new Set()); // IDs de datasets visibles
+            const [loading, setLoading] = useState(false);
+            const [vectorType, setVectorType] = useState('keyword');
+            const [showCentroids, setShowCentroids] = useState(true);
+            const [serverOnline, setServerOnline] = useState(false);
+            const [hoveredBubble, setHoveredBubble] = useState(null);
+            const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+            const [customTopics, setCustomTopics] = useState([]);
+            const [topicInput, setTopicInput] = useState('');
+            const [shouldVectorize, setShouldVectorize] = useState(false);
+            const [topicSearchQuery, setTopicSearchQuery] = useState('');
+            const hoverTimeoutRef = useRef(null);
+
+            // Estados derivados para compatibilidad
+            const [generalTopics, setGeneralTopics] = useState([]);
+
+            useEffect(() => {
+                // Verificar si el servidor está online periódicamente
+                const checkServer = () => {
+                    fetch(`${API_URL}/health`)
+                        .then(res => res.json())
+                        .then(() => setServerOnline(true))
+                        .catch(() => setServerOnline(false));
+                };
+
+                checkServer(); // Verificar inmediatamente
+                const interval = setInterval(checkServer, 5000); // Verificar cada 5 segundos
+
+                return () => clearInterval(interval);
+            }, []);
+
+            const processFile = async (file, fileName) => {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('vector_type', vectorType);
+                formData.append('vectorize', shouldVectorize.toString());
+
+                try {
+                    const response = await fetch(`${API_URL}/process_excel`, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        // Validar que los datos tengan coordenadas válidas
+                        const validKeywords = result.keywords.filter(k =>
+                            k.x !== undefined && k.y !== undefined &&
+                            !isNaN(k.x) && !isNaN(k.y)
+                        );
+
+                        if (validKeywords.length === 0) {
+                            throw new Error('El archivo procesado no contiene coordenadas UMAP válidas');
+                        }
+
+                        // Agregar identificador de dataset a cada keyword
+                        const datasetId = fileName;
+                        const keywordsWithDataset = validKeywords.map(k => ({
+                            ...k,
+                            datasetId,
+                            datasetName: fileName
+                        }));
+
+                        return {
+                            fileName,
+                            data: keywordsWithDataset,
+                            centroids: result.centroids || [],
+                            topics: result.topics || [],
+                            file
+                        };
+                    } else {
+                        throw new Error(result.error);
+                    }
+                } catch (error) {
+                    throw error;
+                }
+            };
+
+            const handleFileUpload = async (event) => {
+                const files = Array.from(event.target.files);
+                if (files.length === 0) return;
+
+                setLoading(true);
+
+                try {
+                    // Procesar todos los archivos
+                    const processedDatasets = [];
+                    for (const file of files) {
+                        try {
+                            console.log(`Procesando: ${file.name}`);
+                            const dataset = await processFile(file, file.name);
+                            processedDatasets.push(dataset);
+                        } catch (error) {
+                            alert(`Error en ${file.name}: ${error.message}`);
+                        }
+                    }
+
+                    if (processedDatasets.length > 0) {
+                        // Agregar nuevos datasets
+                        setDatasets(prev => [...prev, ...processedDatasets]);
+
+                        // Seleccionar automáticamente los nuevos datasets
+                        setSelectedDatasets(prev => {
+                            const newSelected = new Set(prev);
+                            processedDatasets.forEach(ds => newSelected.add(ds.fileName));
+                            return newSelected;
+                        });
+
+                        console.log(`✅ ${processedDatasets.length} archivo(s) cargado(s)`);
+                    }
+                } finally {
+                    setLoading(false);
+                    // Reset input para poder cargar el mismo archivo de nuevo
+                    event.target.value = '';
+                }
+            };
+
+            // Reprocesar todos los archivos cuando cambia el vector_type
+            useEffect(() => {
+                if (datasets.length > 0 && !loading) {
+                    console.log('Reprocesando archivos con vector_type:', vectorType);
+
+                    const reprocessAll = async () => {
+                        setLoading(true);
+                        try {
+                            const reprocessed = [];
+                            for (const ds of datasets) {
+                                try {
+                                    const newDataset = await processFile(ds.file, ds.fileName);
+                                    reprocessed.push(newDataset);
+                                } catch (error) {
+                                    console.error(`Error reprocesando ${ds.fileName}:`, error);
+                                    // Mantener dataset anterior si falla
+                                    reprocessed.push(ds);
+                                }
+                            }
+                            setDatasets(reprocessed);
+                        } finally {
+                            setLoading(false);
+                        }
+                    };
+
+                    reprocessAll();
+                }
+            }, [vectorType]);
+
+            // Cleanup de timeout al desmontar
+            useEffect(() => {
+                return () => {
+                    if (hoverTimeoutRef.current) {
+                        clearTimeout(hoverTimeoutRef.current);
+                    }
+                };
+            }, []);
+
+            // Combinar datos de todos los datasets seleccionados
+            const combinedData = useMemo(() => {
+                const selected = datasets.filter(ds => selectedDatasets.has(ds.fileName));
+                return selected.flatMap(ds => ds.data);
+            }, [datasets, selectedDatasets]);
+
+            const combinedCentroids = useMemo(() => {
+                const selected = datasets.filter(ds => selectedDatasets.has(ds.fileName));
+                return selected.flatMap(ds =>
+                    ds.centroids.map(c => ({
+                        ...c,
+                        datasetName: ds.fileName
+                    }))
+                );
+            }, [datasets, selectedDatasets]);
+
+            const allTopics = useMemo(() => {
+                const topicsSet = new Set();
+                combinedData.forEach(d => topicsSet.add(d.topic));
+                return [...topicsSet].sort();
+            }, [combinedData]);
+
+            const [selectedTopics, setSelectedTopics] = useState(new Set());
+
+            // Auto-seleccionar todos los topics cuando cambian los datos
+            useEffect(() => {
+                if (allTopics.length > 0) {
+                    setSelectedTopics(new Set(allTopics));
+                }
+            }, [allTopics]);
+
+            const filteredData = useMemo(() => {
+                return combinedData.filter(d => selectedTopics.has(d.topic));
+            }, [combinedData, selectedTopics]);
+
+            const toggleTopic = (topic) => {
+                const newSelected = new Set(selectedTopics);
+                if (newSelected.has(topic)) {
+                    newSelected.delete(topic);
+                } else {
+                    newSelected.add(topic);
+                }
+                setSelectedTopics(newSelected);
+            };
+
+            const toggleDataset = (fileName) => {
+                const newSelected = new Set(selectedDatasets);
+                if (newSelected.has(fileName)) {
+                    newSelected.delete(fileName);
+                } else {
+                    newSelected.add(fileName);
+                }
+                setSelectedDatasets(newSelected);
+            };
+
+            const removeDataset = (fileName) => {
+                setDatasets(prev => prev.filter(ds => ds.fileName !== fileName));
+                setSelectedDatasets(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(fileName);
+                    return newSet;
+                });
+            };
+
+            const handleBubbleHover = (event, bubble) => {
+                // Limpiar timeout previo
+                if (hoverTimeoutRef.current) {
+                    clearTimeout(hoverTimeoutRef.current);
+                    hoverTimeoutRef.current = null;
+                }
+
+                if (event && bubble) {
+                    // Dimensiones del tooltip (aproximadas, aumentado para incluir URL)
+                    const tooltipWidth = 300;
+                    const tooltipHeight = 250;
+                    const offsetX = 15;
+                    const offsetY = 15;
+
+                    // Obtener posición del cursor
+                    const mouseX = event.clientX;
+                    const mouseY = event.clientY;
+
+                    // Calcular posición óptima del tooltip
+                    let x, y;
+
+                    // Decidir si va a la derecha o izquierda del cursor
+                    if (mouseX + offsetX + tooltipWidth > window.innerWidth) {
+                        // No cabe a la derecha, ponerlo a la izquierda
+                        x = mouseX - tooltipWidth - offsetX;
+                    } else {
+                        // Cabe a la derecha
+                        x = mouseX + offsetX;
+                    }
+
+                    // Decidir si va abajo o arriba del cursor
+                    if (mouseY + offsetY + tooltipHeight > window.innerHeight) {
+                        // No cabe abajo, ponerlo arriba
+                        y = mouseY - tooltipHeight - offsetY;
+                    } else {
+                        // Cabe abajo
+                        y = mouseY + offsetY;
+                    }
+
+                    // Asegurar que no se salga de los límites de la ventana
+                    x = Math.max(10, Math.min(x, window.innerWidth - tooltipWidth - 10));
+                    y = Math.max(10, Math.min(y, window.innerHeight - tooltipHeight - 10));
+
+                    setTooltipPos({ x, y });
+                    setHoveredBubble(bubble);
+                } else {
+                    // Delay para ocultar tooltip (evita parpadeos entre burbujas)
+                    hoverTimeoutRef.current = setTimeout(() => {
+                        setHoveredBubble(null);
+                    }, 50);
+                }
+            };
+
+            const addCustomTopic = () => {
+                if (topicInput.trim() && !customTopics.includes(topicInput.trim())) {
+                    setCustomTopics([...customTopics, topicInput.trim()]);
+                    setTopicInput('');
+                }
+            };
+
+            const removeCustomTopic = (topic) => {
+                setCustomTopics(customTopics.filter(t => t !== topic));
+            };
+
+            const vectorizeCustomTopics = async () => {
+                if (customTopics.length === 0) {
+                    alert('Añade al menos un tema general');
+                    return;
+                }
+
+                if (datasets.length === 0) {
+                    alert('Primero carga un archivo Excel');
+                    return;
+                }
+
+                setLoading(true);
+
+                try {
+                    // Extraer embeddings originales
+                    const response = await fetch(`${API_URL}/vectorize_topics`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            topics: customTopics,
+                            vector_type: vectorType
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        // Validar coordenadas de topics generales
+                        const validTopics = result.general_topics.filter(t =>
+                            t.x !== undefined && t.y !== undefined &&
+                            !isNaN(t.x) && !isNaN(t.y)
+                        );
+
+                        if (validTopics.length === 0) {
+                            alert('Error: No se pudieron vectorizar los topics generales correctamente');
+                            return;
+                        }
+
+                        setGeneralTopics(validTopics);
+                        console.log('Topics generales vectorizados:', validTopics.length);
+                    } else {
+                        alert('Error: ' + result.error);
+                    }
+                } catch (error) {
+                    alert('Error vectorizando topics: ' + error.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="container">
+                    <div className="header">
+                        <h1>🚧 Topic Map DEV - Desarrollo</h1>
+                        <p>
+                            {datasets.length > 0
+                                ? `${datasets.length} archivo(s) cargado(s) | ${filteredData.length} keywords visibles`
+                                : 'UMAP Python + Clustering Semántico'} - VERSIÓN DE DESARROLLO
+                        </p>
+                        {!serverOnline && (
+                            <p style={{marginTop: '10px', color: '#ff6b6b'}}>
+                                ⚠️ Servidor Python no detectado. Ejecuta: python clustering_server.py
+                            </p>
+                        )}
+                    </div>
+
+                    <div className="topic-input-section">
+                        <h3 style={{ marginBottom: '15px', color: '#856404' }}>🎯 Temas Generales Personalizados</h3>
+                        <div className="topic-input-container">
+                            <input
+                                type="text"
+                                className="topic-input"
+                                placeholder='Ej: "Seguros de Salud", "Tecnología", "Finanzas"...'
+                                value={topicInput}
+                                onChange={(e) => setTopicInput(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && addCustomTopic()}
+                            />
+                            <button onClick={addCustomTopic} disabled={!topicInput.trim()}>
+                                ➕ Añadir
+                            </button>
+                            <button onClick={vectorizeCustomTopics} disabled={customTopics.length === 0 || !serverOnline}>
+                                ⭐ Vectorizar y Mostrar
+                            </button>
+                        </div>
+                        {customTopics.length > 0 && (
+                            <div className="topic-chips">
+                                {customTopics.map((topic, idx) => (
+                                    <div key={idx} className="topic-chip">
+                                        {topic}
+                                        <span className="topic-chip-remove" onClick={() => removeCustomTopic(topic)}>
+                                            ✕
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {datasets.length > 0 && (
+                        <div className="dataset-section">
+                            <h3 style={{ marginBottom: '10px', color: '#1565c0' }}>📊 Datasets Cargados ({datasets.length})</h3>
+                            <small style={{ color: '#424242', display: 'block', marginBottom: '10px' }}>
+                                Haz clic para mostrar/ocultar • Haz clic en ✕ para eliminar
+                            </small>
+                            <div className="dataset-chips">
+                                {datasets.map((dataset, idx) => (
+                                    <div
+                                        key={dataset.fileName}
+                                        className={`dataset-chip ${!selectedDatasets.has(dataset.fileName) ? 'inactive' : ''}`}
+                                    >
+                                        <span
+                                            onClick={() => toggleDataset(dataset.fileName)}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                                        >
+                                            <span
+                                                className="dataset-indicator"
+                                                style={{ backgroundColor: TOPIC_COLOR_PALETTE[idx % TOPIC_COLOR_PALETTE.length] }}
+                                            />
+                                            {dataset.fileName} ({dataset.data.length})
+                                        </span>
+                                        <span
+                                            className="dataset-chip-remove"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                removeDataset(dataset.fileName);
+                                            }}
+                                        >
+                                            ✕
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="controls">
+                        <div className="control-group">
+                            <label htmlFor="file-upload">📁 Cargar Excel (múltiple):</label>
+                            <input
+                                id="file-upload"
+                                type="file"
+                                accept=".xlsx,.xls"
+                                multiple
+                                onChange={handleFileUpload}
+                                disabled={!serverOnline}
+                                style={{ padding: '8px', fontSize: '0.95em', cursor: 'pointer' }}
+                            />
+                        </div>
+
+                        <div className="control-group">
+                            <label>
+                                <input
+                                    type="checkbox"
+                                    checked={shouldVectorize}
+                                    onChange={(e) => setShouldVectorize(e.target.checked)}
+                                />
+                                {' '}🔄 Vectorizar Excel
+                            </label>
+                            <small style={{ color: '#6c757d', fontSize: '0.85em' }}>
+                                {shouldVectorize ? 'Se vectorizarán Keywords/Topics/Subtopics' : 'Usar Excel ya vectorizado'}
+                            </small>
+                        </div>
+
+                        <div className="control-group">
+                            <label>🎯 Vector a usar:</label>
+                            <select value={vectorType} onChange={(e) => setVectorType(e.target.value)}>
+                                <option value="keyword">Keywords</option>
+                                <option value="topic">Topics</option>
+                                <option value="subtopic">Subtopics</option>
+                            </select>
+                        </div>
+
+                        <div className="control-group">
+                            <label>
+                                <input
+                                    type="checkbox"
+                                    checked={showCentroids}
+                                    onChange={(e) => setShowCentroids(e.target.checked)}
+                                />
+                                {' '}Mostrar Centroides
+                            </label>
+                        </div>
+
+                        <div className="control-group">
+                            <label>Keywords: {filteredData.length}</label>
+                            <label>Centroides: {combinedCentroids.length}</label>
+                            <label>Datasets: {selectedDatasets.size}/{datasets.length}</label>
+                        </div>
+                    </div>
+
+                    <div className="chart-container">
+                        {loading ? (
+                            <div className="loading">
+                                {shouldVectorize ? '🔄 Vectorizando archivos y calculando UMAP...' : '🔄 Calculando UMAP y generando centroides...'}
+                                <div style={{ marginTop: '15px', fontSize: '0.9em', color: '#6c757d' }}>
+                                    {shouldVectorize ? 'Esto puede tardar unos minutos según el tamaño de los archivos' : 'Procesando embeddings existentes'}
+                                </div>
+                            </div>
+                        ) : datasets.length === 0 ? (
+                            <div className="loading">
+                                👆 Carga uno o más archivos Excel
+                                <div style={{ marginTop: '15px', fontSize: '0.9em', color: '#6c757d' }}>
+                                    Puedes seleccionar múltiples archivos para comparar competidores<br />
+                                    Marca "🔄 Vectorizar Excel" si tus archivos NO tienen embeddings
+                                </div>
+                            </div>
+                        ) : (
+                            <TopicMapChart
+                                data={filteredData}
+                                centroids={combinedCentroids}
+                                generalTopics={generalTopics}
+                                width={1600}
+                                height={700}
+                                allTopics={allTopics}
+                                showCentroids={showCentroids}
+                                onBubbleHover={handleBubbleHover}
+                            />
+                        )}
+                    </div>
+
+                    {hoveredBubble && (
+                        <div
+                            className="tooltip-custom"
+                            style={{
+                                position: 'fixed',
+                                left: tooltipPos.x,
+                                top: tooltipPos.y,
+                                pointerEvents: 'none',
+                                zIndex: 1000
+                            }}
+                        >
+                            <div className="keyword">{hoveredBubble.keyword}</div>
+                            {hoveredBubble.datasetName && (
+                                <div className="info-row">
+                                    <span className="label">📁 Dataset:</span>
+                                    <span className="value" style={{ fontSize: '0.85em' }}>{hoveredBubble.datasetName}</span>
+                                </div>
+                            )}
+                            <div className="info-row">
+                                <span className="label">Tráfico:</span>
+                                <span className="value">{hoveredBubble.traffic.toLocaleString()}</span>
+                            </div>
+                            <div className="info-row">
+                                <span className="label">Volumen:</span>
+                                <span className="value">{hoveredBubble.volume.toLocaleString()}</span>
+                            </div>
+                            <div className="info-row">
+                                <span className="label">Posición:</span>
+                                <span className="value">#{hoveredBubble.position}</span>
+                            </div>
+                            <div className="info-row">
+                                <span className="label">Dificultad:</span>
+                                <span className="value">{hoveredBubble.kd}%</span>
+                            </div>
+                            <div className="info-row">
+                                <span className="label">Topic:</span>
+                                <span className="value">{hoveredBubble.topic}</span>
+                            </div>
+                            {hoveredBubble.subtopic && (
+                                <div className="info-row">
+                                    <span className="label">Subtopic:</span>
+                                    <span className="value">{hoveredBubble.subtopic}</span>
+                                </div>
+                            )}
+                            {hoveredBubble.url && (
+                                <div className="info-row">
+                                    <span className="label">URL:</span>
+                                    <span className="value" style={{ fontSize: '0.85em', wordBreak: 'break-all' }}>
+                                        {hoveredBubble.url}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    <div className="legend">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                            <div className="legend-title">📊 Topics ({selectedTopics.size}/{allTopics.length})</div>
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                                <button
+                                    onClick={() => setSelectedTopics(new Set(allTopics))}
+                                    style={{
+                                        padding: '6px 12px',
+                                        background: '#4caf50',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '5px',
+                                        cursor: 'pointer',
+                                        fontSize: '0.85em',
+                                        fontWeight: '600',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    onMouseOver={(e) => e.target.style.background = '#45a049'}
+                                    onMouseOut={(e) => e.target.style.background = '#4caf50'}
+                                >
+                                    ✓ Todos
+                                </button>
+                                <button
+                                    onClick={() => setSelectedTopics(new Set())}
+                                    style={{
+                                        padding: '6px 12px',
+                                        background: '#f44336',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '5px',
+                                        cursor: 'pointer',
+                                        fontSize: '0.85em',
+                                        fontWeight: '600',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    onMouseOver={(e) => e.target.style.background = '#da190b'}
+                                    onMouseOut={(e) => e.target.style.background = '#f44336'}
+                                >
+                                    ✕ Ninguno
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        const newSelected = new Set();
+                                        allTopics.forEach(topic => {
+                                            if (!selectedTopics.has(topic)) {
+                                                newSelected.add(topic);
+                                            }
+                                        });
+                                        setSelectedTopics(newSelected);
+                                    }}
+                                    style={{
+                                        padding: '6px 12px',
+                                        background: '#ff9800',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '5px',
+                                        cursor: 'pointer',
+                                        fontSize: '0.85em',
+                                        fontWeight: '600',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    onMouseOver={(e) => e.target.style.background = '#e68900'}
+                                    onMouseOut={(e) => e.target.style.background = '#ff9800'}
+                                >
+                                    🔄 Invertir
+                                </button>
+                            </div>
+                        </div>
+
+                        <div style={{ marginBottom: '15px' }}>
+                            <input
+                                type="text"
+                                placeholder="🔍 Buscar topics..."
+                                value={topicSearchQuery}
+                                onChange={(e) => setTopicSearchQuery(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px 15px',
+                                    border: '2px solid #dee2e6',
+                                    borderRadius: '8px',
+                                    fontSize: '0.95em',
+                                    outline: 'none',
+                                    transition: 'border-color 0.3s'
+                                }}
+                                onFocus={(e) => e.target.style.borderColor = '#667eea'}
+                                onBlur={(e) => e.target.style.borderColor = '#dee2e6'}
+                            />
+                            {topicSearchQuery && (
+                                <small style={{ color: '#6c757d', marginTop: '5px', display: 'block' }}>
+                                    Mostrando {allTopics.filter(t => t.toLowerCase().includes(topicSearchQuery.toLowerCase())).length} de {allTopics.length} topics
+                                </small>
+                            )}
+                        </div>
+
+                        <div className="legend-items" style={{ maxHeight: '400px', overflowY: 'auto', padding: '5px' }}>
+                            {allTopics
+                                .filter(topic => topic.toLowerCase().includes(topicSearchQuery.toLowerCase()))
+                                .map(topic => {
+                                    const count = combinedData.filter(d => d.topic === topic).length;
+                                    const centroid = combinedCentroids.find(c => c.topic === topic);
+                                    return (
+                                        <div
+                                            key={topic}
+                                            className={`legend-item ${!selectedTopics.has(topic) ? 'inactive' : ''}`}
+                                            onClick={() => toggleTopic(topic)}
+                                        >
+                                            <div
+                                                className="legend-color"
+                                                style={{ backgroundColor: getTopicColor(topic, allTopics) }}
+                                            />
+                                            <span className="legend-label">
+                                                {topic} ({count})
+                                                {centroid && ` - Dispersión: ${centroid.dispersion.toFixed(2)}`}
+                                            </span>
+                                        </div>
+                                    );
+                                })}
+                        </div>
+
+                        {allTopics.filter(t => t.toLowerCase().includes(topicSearchQuery.toLowerCase())).length === 0 && (
+                            <div style={{ textAlign: 'center', padding: '30px', color: '#6c757d' }}>
+                                No se encontraron topics con "{topicSearchQuery}"
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>

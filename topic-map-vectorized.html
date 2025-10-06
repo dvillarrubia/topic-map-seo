@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Topic Map Vectorizado - Clustering Semántico</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/umap-js@1.4.0/lib/umap-js.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+
+        .controls {
+            padding: 30px 40px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.9em;
+        }
+
+        .control-group select,
+        .control-group input {
+            padding: 10px 15px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 1em;
+            background: white;
+            transition: all 0.3s;
+        }
+
+        .control-group select:focus,
+        .control-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            min-width: 150px;
+        }
+
+        .stat-card .label {
+            font-size: 0.85em;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .value {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .chart-container {
+            padding: 40px;
+            min-height: 700px;
+        }
+
+        .legend {
+            padding: 20px 40px;
+            background: #f8f9fa;
+            border-top: 2px solid #e9ecef;
+        }
+
+        .legend-title {
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #495057;
+        }
+
+        .legend-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .legend-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .legend-item.inactive {
+            opacity: 0.3;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+        }
+
+        .legend-label {
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+
+        .tooltip-custom {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border: 2px solid #667eea;
+            max-width: 300px;
+        }
+
+        .tooltip-custom .keyword {
+            font-weight: 700;
+            font-size: 1.1em;
+            color: #667eea;
+            margin-bottom: 10px;
+            word-break: break-word;
+        }
+
+        .tooltip-custom .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 0.9em;
+        }
+
+        .tooltip-custom .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .tooltip-custom .label {
+            color: #6c757d;
+            font-weight: 500;
+        }
+
+        .tooltip-custom .value {
+            font-weight: 600;
+            color: #212529;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px;
+            font-size: 1.2em;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // Paleta de colores vibrantes y distintos para topics
+        const TOPIC_COLOR_PALETTE = [
+            '#667eea', '#f093fb', '#4facfe', '#43e97b', '#fa709a', '#feca57',
+            '#ff6b6b', '#48dbfb', '#ff9ff3', '#54a0ff', '#00d2d3', '#5f27cd',
+            '#ee5a6f', '#f368e0', '#ff9f43', '#10ac84', '#576574', '#341f97',
+            '#2e86de', '#ff6348', '#7bed9f', '#70a1ff', '#eccc68', '#c44569',
+            '#f8b500', '#6c5ce7', '#fd79a8', '#00b894', '#0984e3', '#e17055',
+            '#74b9ff', '#a29bfe', '#fd79a8', '#fdcb6e', '#e84393', '#2d3436'
+        ];
+
+        // Mapa global de topic a color (se llenará dinámicamente)
+        let TOPIC_COLOR_MAP = {};
+
+        // Función para obtener color consistente por topic
+        function getTopicColor(topic, allTopics) {
+            // Si no existe el mapa, crearlo
+            if (Object.keys(TOPIC_COLOR_MAP).length === 0 && allTopics) {
+                allTopics.forEach((t, index) => {
+                    TOPIC_COLOR_MAP[t] = TOPIC_COLOR_PALETTE[index % TOPIC_COLOR_PALETTE.length];
+                });
+            }
+
+            return TOPIC_COLOR_MAP[topic] || TOPIC_COLOR_PALETTE[0];
+        }
+
+        // Función para calcular UMAP en 2D - Clustering semántico real
+        function calculateUMAP(embeddings) {
+            console.log("🚀 Iniciando UMAP con", embeddings.length, "puntos y", embeddings[0].length, "dimensiones");
+
+            // Configurar UMAP
+            const umap = new UMAP.UMAP({
+                nComponents: 2,           // 2D para visualización
+                nNeighbors: 15,           // Vecinos para estructura local (ajustable: 5-50)
+                minDist: 0.1,             // Distancia mínima entre puntos (0.0-1.0)
+                spread: 1.0,              // Spread de puntos
+                random: () => Math.random() // Semilla aleatoria
+            });
+
+            console.log("⚙️ UMAP configurado - Procesando embeddings...");
+
+            // Ejecutar UMAP
+            const result = umap.fit(embeddings);
+
+            console.log("✅ UMAP completado");
+
+            // Separar coordenadas
+            const x = result.map(point => point[0]);
+            const y = result.map(point => point[1]);
+
+            return { pc1: x, pc2: y };
+        }
+
+        function VectorBubbleChart({ data, width, height, onBubbleHover, sizeMetric = 'traffic', allTopics = [] }) {
+            const svgRef = useRef();
+
+            useEffect(() => {
+                if (!data || data.length === 0) return;
+
+                const svg = d3.select(svgRef.current);
+                svg.selectAll('*').remove();
+
+                const margin = { top: 40, right: 60, bottom: 60, left: 80 };
+                const innerWidth = width - margin.left - margin.right;
+                const innerHeight = height - margin.top - margin.bottom;
+
+                const g = svg.append('g')
+                    .attr('transform', `translate(${margin.left},${margin.top})`);
+
+                // Escalas basadas en coordenadas PCA
+                const xScale = d3.scaleLinear()
+                    .domain([d3.min(data, d => d.x) * 1.1, d3.max(data, d => d.x) * 1.1])
+                    .range([0, innerWidth]);
+
+                const yScale = d3.scaleLinear()
+                    .domain([d3.min(data, d => d.y) * 1.1, d3.max(data, d => d.y) * 1.1])
+                    .range([innerHeight, 0]);
+
+                // Determinar métrica para el tamaño
+                const getSizeValue = (d) => {
+                    if (sizeMetric === 'volume') return d.volume;
+                    if (sizeMetric === 'position') return 101 - d.position; // Invertir para que mejor posición = más grande
+                    return d.traffic; // default
+                };
+
+                const sizeScale = d3.scaleSqrt()
+                    .domain([0, d3.max(data, d => getSizeValue(d))])
+                    .range([4, 40]);
+
+                // Grid
+                g.append('g')
+                    .attr('class', 'grid')
+                    .attr('transform', `translate(0,${innerHeight})`)
+                    .call(d3.axisBottom(xScale).tickSize(-innerHeight).tickFormat(''))
+                    .style('stroke', '#e0e0e0')
+                    .style('stroke-dasharray', '3,3');
+
+                g.append('g')
+                    .attr('class', 'grid')
+                    .call(d3.axisLeft(yScale).tickSize(-innerWidth).tickFormat(''))
+                    .style('stroke', '#e0e0e0')
+                    .style('stroke-dasharray', '3,3');
+
+                // Ejes
+                g.append('g')
+                    .attr('transform', `translate(0,${innerHeight})`)
+                    .call(d3.axisBottom(xScale).ticks(6))
+                    .style('font-size', '12px');
+
+                g.append('g')
+                    .call(d3.axisLeft(yScale).ticks(6))
+                    .style('font-size', '12px');
+
+                // Labels de ejes
+                g.append('text')
+                    .attr('x', innerWidth / 2)
+                    .attr('y', innerHeight + 45)
+                    .attr('text-anchor', 'middle')
+                    .style('font-weight', '600')
+                    .style('font-size', '14px')
+                    .text('UMAP Dimensión 1 (Similitud Semántica)');
+
+                g.append('text')
+                    .attr('transform', 'rotate(-90)')
+                    .attr('x', -innerHeight / 2)
+                    .attr('y', -55)
+                    .attr('text-anchor', 'middle')
+                    .style('font-weight', '600')
+                    .style('font-size', '14px')
+                    .text('UMAP Dimensión 2');
+
+                // Burbujas
+                const bubbles = g.selectAll('.bubble')
+                    .data(data)
+                    .enter()
+                    .append('circle')
+                    .attr('class', 'bubble')
+                    .attr('cx', d => xScale(d.x))
+                    .attr('cy', d => yScale(d.y))
+                    .attr('r', d => sizeScale(getSizeValue(d)))
+                    .attr('fill', d => getTopicColor(d.topic, allTopics))
+                    .attr('opacity', 0.7)
+                    .attr('stroke', d => getTopicColor(d.topic, allTopics))
+                    .attr('stroke-width', 2)
+                    .style('cursor', 'pointer')
+                    .on('mouseover', function(event, d) {
+                        d3.select(this)
+                            .transition()
+                            .duration(200)
+                            .attr('opacity', 1)
+                            .attr('stroke-width', 3);
+                        onBubbleHover(event, d);
+                    })
+                    .on('mouseout', function() {
+                        d3.select(this)
+                            .transition()
+                            .duration(200)
+                            .attr('opacity', 0.7)
+                            .attr('stroke-width', 2);
+                        onBubbleHover(null, null);
+                    });
+
+            }, [data, width, height, sizeMetric, allTopics]);
+
+            return <svg ref={svgRef} width={width} height={height} />;
+        }
+
+        function App() {
+            const [data, setData] = useState([]);
+            const [loading, setLoading] = useState(false);
+            const [selectedTopics, setSelectedTopics] = useState(new Set());
+            const [minTraffic, setMinTraffic] = useState(0);
+            const [sortBy, setSortBy] = useState('traffic');
+            const [hoveredBubble, setHoveredBubble] = useState(null);
+            const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+            const [fileName, setFileName] = useState('');
+            const [vectorType, setVectorType] = useState('keyword');
+            const [rawData, setRawData] = useState(null);
+
+            const processExcelData = (arrayBuffer, vType = vectorType) => {
+                try {
+                    setLoading(true);
+                    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+                    console.log("Datos cargados:", jsonData.length, "filas");
+                    console.log("Columnas:", Object.keys(jsonData[0]));
+
+                    // Guardar datos crudos para reprocesar cuando cambie el tipo de vector
+                    setRawData({ workbook, jsonData });
+
+                    // Extraer embeddings según el tipo seleccionado
+                    const prefix = `${vType}_embed_`;
+                    const embedCols = Object.keys(jsonData[0]).filter(col => col.startsWith(prefix));
+
+                    console.log(`Columnas de embeddings encontradas (${prefix}):`, embedCols.length);
+
+                    if (embedCols.length === 0) {
+                        alert(`No se encontraron columnas de embeddings con el prefijo '${prefix}'. Asegúrate de haber vectorizado el archivo correctamente.`);
+                        setLoading(false);
+                        return;
+                    }
+
+                    // Extraer vectores
+                    const embeddings = jsonData.map(row =>
+                        embedCols.map(col => parseFloat(row[col]) || 0)
+                    );
+
+                    console.log("Calculando UMAP para reducir dimensionalidad...");
+                    const { pc1, pc2 } = calculateUMAP(embeddings);
+
+                    const processedData = jsonData.map((row, index) => ({
+                        id: index,
+                        keyword: row.Keyword || '',
+                        traffic: row.Traffic || 0,
+                        volume: row.Volume || 0,
+                        position: row.Position || 0,
+                        kd: row.KD || 0,
+                        topic: row.Topic || 'Miscellaneous',
+                        subtopic: row.Subtopic || '',
+                        url: row.URL || '',
+                        x: pc1[index],
+                        y: pc2[index]
+                    }));
+
+                    console.log("Datos procesados:", processedData.length);
+                    setData(processedData);
+                    const topics = new Set(processedData.map(d => d.topic));
+                    setSelectedTopics(topics);
+                    setLoading(false);
+                } catch (error) {
+                    console.error('Error processing Excel data:', error);
+                    alert('Error al procesar el archivo Excel: ' + error.message);
+                    setLoading(false);
+                }
+            };
+
+            // Reprocesar cuando cambia el tipo de vector
+            useEffect(() => {
+                if (rawData && rawData.jsonData) {
+                    const prefix = `${vectorType}_embed_`;
+                    const embedCols = Object.keys(rawData.jsonData[0]).filter(col => col.startsWith(prefix));
+
+                    if (embedCols.length === 0) {
+                        alert(`No se encontraron columnas de embeddings con el prefijo '${prefix}'.`);
+                        return;
+                    }
+
+                    setLoading(true);
+
+                    const embeddings = rawData.jsonData.map(row =>
+                        embedCols.map(col => parseFloat(row[col]) || 0)
+                    );
+
+                    const { pc1, pc2 } = calculateUMAP(embeddings);
+
+                    const processedData = rawData.jsonData.map((row, index) => ({
+                        id: index,
+                        keyword: row.Keyword || '',
+                        traffic: row.Traffic || 0,
+                        volume: row.Volume || 0,
+                        position: row.Position || 0,
+                        kd: row.KD || 0,
+                        topic: row.Topic || 'Miscellaneous',
+                        subtopic: row.Subtopic || '',
+                        url: row.URL || '',
+                        x: pc1[index],
+                        y: pc2[index]
+                    }));
+
+                    setData(processedData);
+                    setLoading(false);
+                }
+            }, [vectorType]);
+
+            const handleFileUpload = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                setFileName(file.name);
+                setLoading(true);
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    processExcelData(e.target.result);
+                };
+                reader.onerror = () => {
+                    alert('Error al leer el archivo');
+                    setLoading(false);
+                };
+                reader.readAsArrayBuffer(file);
+            };
+
+            const filteredData = useMemo(() => {
+                let filtered = data.filter(d =>
+                    selectedTopics.has(d.topic) && d.traffic >= minTraffic
+                );
+
+                if (sortBy === 'traffic') {
+                    filtered = [...filtered].sort((a, b) => b.traffic - a.traffic);
+                } else if (sortBy === 'position') {
+                    filtered = [...filtered].sort((a, b) => a.position - b.position);
+                } else if (sortBy === 'volume') {
+                    filtered = [...filtered].sort((a, b) => b.volume - a.volume);
+                }
+
+                return filtered;
+            }, [data, selectedTopics, minTraffic, sortBy]);
+
+            const topics = useMemo(() => {
+                return [...new Set(data.map(d => d.topic))].sort();
+            }, [data]);
+
+            const stats = useMemo(() => {
+                return {
+                    total: filteredData.length,
+                    totalTraffic: filteredData.reduce((sum, d) => sum + d.traffic, 0),
+                    avgPosition: Math.round(filteredData.reduce((sum, d) => sum + d.position, 0) / filteredData.length) || 0
+                };
+            }, [filteredData]);
+
+            const toggleTopic = (topic) => {
+                const newSelected = new Set(selectedTopics);
+                if (newSelected.has(topic)) {
+                    newSelected.delete(topic);
+                } else {
+                    newSelected.add(topic);
+                }
+                setSelectedTopics(newSelected);
+            };
+
+            const handleBubbleHover = (event, bubble) => {
+                if (event && bubble) {
+                    // Calcular posición del tooltip con ajuste inteligente
+                    const tooltipWidth = 300;
+                    const tooltipHeight = 250;
+                    const offset = 15;
+
+                    let x = event.pageX + offset;
+                    let y = event.pageY + offset;
+
+                    // Ajustar si se sale por la derecha
+                    if (x + tooltipWidth > window.innerWidth) {
+                        x = event.pageX - tooltipWidth - offset;
+                    }
+
+                    // Ajustar si se sale por abajo
+                    if (y + tooltipHeight > window.innerHeight) {
+                        y = event.pageY - tooltipHeight - offset;
+                    }
+
+                    // Ajustar si se sale por arriba
+                    if (y < 0) {
+                        y = offset;
+                    }
+
+                    // Ajustar si se sale por la izquierda
+                    if (x < 0) {
+                        x = offset;
+                    }
+
+                    setTooltipPos({ x, y });
+                    setHoveredBubble(bubble);
+                } else {
+                    setHoveredBubble(null);
+                }
+            };
+
+            return (
+                <div className="container">
+                    <div className="header">
+                        <h1>🗺️ Topic Map Vectorizado</h1>
+                        <p>{fileName ? `Archivo: ${fileName}` : 'Clustering Semántico con Embeddings'}</p>
+                    </div>
+
+                    <div className="controls">
+                        <div className="control-group">
+                            <label htmlFor="file-upload">📁 Cargar Excel Vectorizado:</label>
+                            <input
+                                id="file-upload"
+                                type="file"
+                                accept=".xlsx,.xls"
+                                onChange={handleFileUpload}
+                                style={{ padding: '8px', fontSize: '0.95em', cursor: 'pointer' }}
+                            />
+                        </div>
+
+                        <div className="control-group">
+                            <label>🎯 Vector a usar:</label>
+                            <select value={vectorType} onChange={(e) => setVectorType(e.target.value)}>
+                                <option value="keyword">Keywords</option>
+                                <option value="topic">Topics</option>
+                                <option value="subtopic">Subtopics</option>
+                            </select>
+                        </div>
+
+                        <div className="control-group">
+                            <label>Ordenar por:</label>
+                            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                                <option value="traffic">Tráfico</option>
+                                <option value="volume">Volumen</option>
+                                <option value="position">Mejor Posición</option>
+                            </select>
+                        </div>
+
+                        <div className="control-group">
+                            <label>Tráfico mínimo:</label>
+                            <input
+                                type="number"
+                                value={minTraffic}
+                                onChange={(e) => setMinTraffic(parseInt(e.target.value) || 0)}
+                                min="0"
+                                placeholder="0"
+                            />
+                        </div>
+
+                        <div className="stats">
+                            <div className="stat-card">
+                                <div className="label">Keywords</div>
+                                <div className="value">{stats.total}</div>
+                            </div>
+                            <div className="stat-card">
+                                <div className="label">Tráfico Total</div>
+                                <div className="value">{stats.totalTraffic.toLocaleString()}</div>
+                            </div>
+                            <div className="stat-card">
+                                <div className="label">Posición Promedio</div>
+                                <div className="value">#{stats.avgPosition}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="chart-container">
+                        {loading ? (
+                            <div className="loading">
+                                🔄 Calculando UMAP (Clustering Semántico Real)...
+                                <div style={{ marginTop: '15px', fontSize: '0.9em', color: '#6c757d' }}>
+                                    Agrupando keywords semánticamente similares
+                                </div>
+                            </div>
+                        ) : data.length === 0 ? (
+                            <div className="loading">
+                                👆 Selecciona un archivo Excel VECTORIZADO para comenzar
+                                <div style={{ marginTop: '20px', fontSize: '0.9em', color: '#6c757d' }}>
+                                    El archivo debe contener columnas de embeddings: keyword_embed_0, topic_embed_0, etc.
+                                    <br />
+                                    Usa el script vectorize_keywords.py para generar el archivo vectorizado.
+                                </div>
+                            </div>
+                        ) : (
+                            <VectorBubbleChart
+                                data={filteredData}
+                                width={1600}
+                                height={700}
+                                onBubbleHover={handleBubbleHover}
+                                sizeMetric={sortBy}
+                                allTopics={topics}
+                            />
+                        )}
+                    </div>
+
+                    {hoveredBubble && (
+                        <div
+                            className="tooltip-custom"
+                            style={{
+                                position: 'fixed',
+                                left: tooltipPos.x,
+                                top: tooltipPos.y,
+                                pointerEvents: 'none',
+                                zIndex: 1000
+                            }}
+                        >
+                            <div className="keyword">{hoveredBubble.keyword}</div>
+                            <div className="info-row">
+                                <span className="label">Tráfico:</span>
+                                <span className="value">{hoveredBubble.traffic.toLocaleString()}</span>
+                            </div>
+                            <div className="info-row">
+                                <span className="label">Volumen:</span>
+                                <span className="value">{hoveredBubble.volume.toLocaleString()}</span>
+                            </div>
+                            <div className="info-row">
+                                <span className="label">Posición:</span>
+                                <span className="value">#{hoveredBubble.position}</span>
+                            </div>
+                            <div className="info-row">
+                                <span className="label">Dificultad:</span>
+                                <span className="value">{hoveredBubble.kd}%</span>
+                            </div>
+                            <div className="info-row">
+                                <span className="label">Topic:</span>
+                                <span className="value">{hoveredBubble.topic}</span>
+                            </div>
+                            {hoveredBubble.subtopic && (
+                                <div className="info-row">
+                                    <span className="label">Subtopic:</span>
+                                    <span className="value">{hoveredBubble.subtopic}</span>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    <div className="legend">
+                        <div className="legend-title">📊 Topics - Haz clic para filtrar</div>
+                        <div className="legend-items">
+                            {topics.map(topic => {
+                                const count = data.filter(d => d.topic === topic).length;
+                                return (
+                                    <div
+                                        key={topic}
+                                        className={`legend-item ${!selectedTopics.has(topic) ? 'inactive' : ''}`}
+                                        onClick={() => toggleTopic(topic)}
+                                    >
+                                        <div
+                                            className="legend-color"
+                                            style={{ backgroundColor: getTopicColor(topic, topics) }}
+                                        />
+                                        <span className="legend-label">{topic} ({count})</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>

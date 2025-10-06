@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Topic Map con Centroides - Python Backend</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+
+        .controls {
+            padding: 30px 40px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.9em;
+        }
+
+        .control-group select,
+        .control-group input[type="number"],
+        .control-group button {
+            padding: 10px 15px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 1em;
+            background: white;
+            transition: all 0.3s;
+        }
+
+        .control-group button {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .control-group button:hover {
+            background: #5568d3;
+        }
+
+        .control-group button:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+
+        .chart-container {
+            padding: 40px;
+            min-height: 700px;
+        }
+
+        .legend {
+            padding: 20px 40px;
+            background: #f8f9fa;
+            border-top: 2px solid #e9ecef;
+        }
+
+        .legend-title {
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #495057;
+        }
+
+        .legend-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .legend-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .legend-item.inactive {
+            opacity: 0.3;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px;
+            font-size: 1.2em;
+            color: #667eea;
+        }
+
+        .centroid {
+            cursor: pointer;
+        }
+
+        .centroid-label {
+            font-weight: 700;
+            font-size: 14px;
+            fill: #2d3436;
+            pointer-events: none;
+            text-shadow: 1px 1px 2px white, -1px -1px 2px white, 1px -1px 2px white, -1px 1px 2px white;
+        }
+
+        .general-topic {
+            cursor: pointer;
+        }
+
+        .general-topic-label {
+            font-weight: 800;
+            font-size: 16px;
+            fill: #e74c3c;
+            pointer-events: none;
+            text-shadow: 2px 2px 3px white, -2px -2px 3px white, 2px -2px 3px white, -2px 2px 3px white;
+        }
+
+        .topic-input-section {
+            padding: 20px 40px;
+            background: #fff3cd;
+            border-bottom: 2px solid #ffc107;
+        }
+
+        .topic-input-container {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .topic-input {
+            flex: 1;
+            min-width: 300px;
+            padding: 10px 15px;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            font-size: 1em;
+        }
+
+        .topic-chips {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .topic-chip {
+            background: #e74c3c;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .topic-chip-remove {
+            cursor: pointer;
+            font-weight: bold;
+            margin-left: 4px;
+        }
+
+        .topic-chip-remove:hover {
+            transform: scale(1.2);
+        }
+
+        .tooltip-custom {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border: 2px solid #667eea;
+            max-width: 300px;
+        }
+
+        .tooltip-custom .keyword {
+            font-weight: 700;
+            font-size: 1.1em;
+            color: #667eea;
+            margin-bottom: 10px;
+            word-break: break-word;
+        }
+
+        .tooltip-custom .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 0.9em;
+        }
+
+        .tooltip-custom .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .tooltip-custom .label {
+            color: #6c757d;
+            font-weight: 500;
+        }
+
+        .tooltip-custom .value {
+            font-weight: 600;
+            color: #212529;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        const API_URL = 'http://localhost:5000';
+
+        const TOPIC_COLOR_PALETTE = [
+            '#667eea', '#f093fb', '#4facfe', '#43e97b', '#fa709a', '#feca57',
+            '#ff6b6b', '#48dbfb', '#ff9ff3', '#54a0ff', '#00d2d3', '#5f27cd',
+            '#ee5a6f', '#f368e0', '#ff9f43', '#10ac84', '#576574', '#341f97',
+            '#2e86de', '#ff6348', '#7bed9f', '#70a1ff', '#eccc68', '#c44569',
+            '#f8b500', '#6c5ce7', '#fd79a8', '#00b894', '#0984e3', '#e17055'
+        ];
+
+        let TOPIC_COLOR_MAP = {};
+
+        function getTopicColor(topic, allTopics) {
+            if (Object.keys(TOPIC_COLOR_MAP).length === 0 && allTopics) {
+                allTopics.forEach((t, index) => {
+                    TOPIC_COLOR_MAP[t] = TOPIC_COLOR_PALETTE[index % TOPIC_COLOR_PALETTE.length];
+                });
+            }
+            return TOPIC_COLOR_MAP[topic] || TOPIC_COLOR_PALETTE[0];
+        }
+
+        function TopicMapChart({ data, centroids, generalTopics, width, height, allTopics, showCentroids, onBubbleHover }) {
+            const svgRef = useRef();
+            const containerRef = useRef();
+
+            useEffect(() => {
+                if (!data || data.length === 0) return;
+
+                const svg = d3.select(svgRef.current);
+                svg.selectAll('*').remove();
+
+                const margin = { top: 40, right: 60, bottom: 60, left: 80 };
+                const innerWidth = width - margin.left - margin.right;
+                const innerHeight = height - margin.top - margin.bottom;
+
+                const g = svg.append('g')
+                    .attr('transform', `translate(${margin.left},${margin.top})`);
+
+                // Prevenir NaN en escalas si todos los valores son iguales o indefinidos
+                const xExtent = d3.extent(data, d => d.x);
+                const yExtent = d3.extent(data, d => d.y);
+
+                const xScale = d3.scaleLinear()
+                    .domain([
+                        (xExtent[0] || 0) * 1.1,
+                        (xExtent[1] || 0) * 1.1 || 1
+                    ])
+                    .range([0, innerWidth]);
+
+                const yScale = d3.scaleLinear()
+                    .domain([
+                        (yExtent[0] || 0) * 1.1,
+                        (yExtent[1] || 0) * 1.1 || 1
+                    ])
+                    .range([innerHeight, 0]);
+
+                const sizeScale = d3.scaleSqrt()
+                    .domain([0, d3.max(data, d => d.traffic) || 100])
+                    .range([4, 30]);
+
+                // Grid
+                g.append('g')
+                    .attr('class', 'grid')
+                    .attr('transform', `translate(0,${innerHeight})`)
+                    .call(d3.axisBottom(xScale).tickSize(-innerHeight).tickFormat(''))
+                    .style('stroke', '#e0e0e0')
+                    .style('stroke-dasharray', '3,3');
+
+                g.append('g')
+                    .attr('class', 'grid')
+                    .call(d3.axisLeft(yScale).tickSize(-innerWidth).tickFormat(''))
+                    .style('stroke', '#e0e0e0')
+                    .style('stroke-dasharray', '3,3');
+
+                // Ejes
+                g.append('g')
+                    .attr('transform', `translate(0,${innerHeight})`)
+                    .call(d3.axisBottom(xScale).ticks(6))
+                    .style('font-size', '12px');
+
+                g.append('g')
+                    .call(d3.axisLeft(yScale).ticks(6))
+                    .style('font-size', '12px');
+
+                // Labels de ejes
+                g.append('text')
+                    .attr('x', innerWidth / 2)
+                    .attr('y', innerHeight + 45)
+                    .attr('text-anchor', 'middle')
+                    .style('font-weight', '600')
+                    .style('font-size', '14px')
+                    .text('UMAP Dimensión 1 (Python)');
+
+                g.append('text')
+                    .attr('transform', 'rotate(-90)')
+                    .attr('x', -innerHeight / 2)
+                    .attr('y', -55)
+                    .attr('text-anchor', 'middle')
+                    .style('font-weight', '600')
+                    .style('font-size', '14px')
+                    .text('UMAP Dimensión 2');
+
+                // Keywords (burbujas)
+                g.selectAll('.bubble')
+                    .data(data)
+                    .enter()
+                    .append('circle')
+                    .attr('class', 'bubble')
+                    .attr('cx', d => xScale(d.x))
+                    .attr('cy', d => yScale(d.y))
+                    .attr('r', d => sizeScale(d.traffic))
+                    .attr('fill', d => getTopicColor(d.topic, allTopics))
+                    .attr('opacity', 0.6)
+                    .attr('stroke', d => getTopicColor(d.topic, allTopics))
+                    .attr('stroke-width', 1)
+                    .style('cursor', 'pointer')
+                    .on('mouseover', function(event, d) {
+                        d3.select(this)
+                            .transition()
+                            .duration(200)
+                            .attr('opacity', 1)
+                            .attr('stroke-width', 3);
+                        onBubbleHover(event, d);
+                    })
+                    .on('mousemove', function(event, d) {
+                        // Actualizar posición del tooltip mientras se mueve el mouse
+                        onBubbleHover(event, d);
+                    })
+                    .on('mouseleave', function(event) {
+                        d3.select(this)
+                            .transition()
+                            .duration(200)
+                            .attr('opacity', 0.6)
+                            .attr('stroke-width', 1);
+                        onBubbleHover(null, null);
+                    });
+
+                // Centroides
+                if (showCentroids && centroids && centroids.length > 0) {
+                    // Círculos de centroides
+                    g.selectAll('.centroid')
+                        .data(centroids)
+                        .enter()
+                        .append('circle')
+                        .attr('class', 'centroid')
+                        .attr('cx', d => xScale(d.x))
+                        .attr('cy', d => yScale(d.y))
+                        .attr('r', 20)
+                        .attr('fill', d => getTopicColor(d.topic, allTopics))
+                        .attr('opacity', 0.9)
+                        .attr('stroke', '#2d3436')
+                        .attr('stroke-width', 3);
+
+                    // Labels de centroides
+                    g.selectAll('.centroid-label')
+                        .data(centroids)
+                        .enter()
+                        .append('text')
+                        .attr('class', 'centroid-label')
+                        .attr('x', d => xScale(d.x))
+                        .attr('y', d => yScale(d.y) - 25)
+                        .attr('text-anchor', 'middle')
+                        .text(d => `${d.topic} (${d.count})`);
+                }
+
+                // Topics Generales (estrellas rojas)
+                if (generalTopics && generalTopics.length > 0) {
+                    // Estrellas para topics generales
+                    g.selectAll('.general-topic')
+                        .data(generalTopics)
+                        .enter()
+                        .append('path')
+                        .attr('class', 'general-topic')
+                        .attr('d', d3.symbol().type(d3.symbolStar).size(500))
+                        .attr('transform', d => `translate(${xScale(d.x)},${yScale(d.y)})`)
+                        .attr('fill', '#e74c3c')
+                        .attr('opacity', 0.9)
+                        .attr('stroke', '#c0392b')
+                        .attr('stroke-width', 3);
+
+                    // Labels de topics generales
+                    g.selectAll('.general-topic-label')
+                        .data(generalTopics)
+                        .enter()
+                        .append('text')
+                        .attr('class', 'general-topic-label')
+                        .attr('x', d => xScale(d.x))
+                        .attr('y', d => yScale(d.y) - 30)
+                        .attr('text-anchor', 'middle')
+                        .text(d => d.topic);
+                }
+
+            }, [data, centroids, generalTopics, width, height, allTopics, showCentroids, onBubbleHover]);
+
+            // Limpiar tooltip cuando el mouse sale del SVG
+            useEffect(() => {
+                const handleMouseLeave = () => {
+                    onBubbleHover(null, null);
+                };
+
+                const svgElement = svgRef.current;
+                if (svgElement) {
+                    svgElement.addEventListener('mouseleave', handleMouseLeave);
+                    return () => {
+                        svgElement.removeEventListener('mouseleave', handleMouseLeave);
+                    };
+                }
+            }, [onBubbleHover]);
+
+            return <svg ref={svgRef} width={width} height={height} />;
+        }
+
+        function App() {
+            const [data, setData] = useState([]);
+            const [centroids, setCentroids] = useState([]);
+            const [generalTopics, setGeneralTopics] = useState([]);
+            const [loading, setLoading] = useState(false);
+            const [selectedTopics, setSelectedTopics] = useState(new Set());
+            const [fileName, setFileName] = useState('');
+            const [vectorType, setVectorType] = useState('keyword');
+            const [showCentroids, setShowCentroids] = useState(true);
+            const [serverOnline, setServerOnline] = useState(false);
+            const [hoveredBubble, setHoveredBubble] = useState(null);
+            const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+            const [customTopics, setCustomTopics] = useState([]);
+            const [topicInput, setTopicInput] = useState('');
+            const [shouldVectorize, setShouldVectorize] = useState(false);
+            const [currentFile, setCurrentFile] = useState(null);
+            const hoverTimeoutRef = useRef(null);
+
+            useEffect(() => {
+                // Verificar si el servidor está online periódicamente
+                const checkServer = () => {
+                    fetch(`${API_URL}/health`)
+                        .then(res => res.json())
+                        .then(() => setServerOnline(true))
+                        .catch(() => setServerOnline(false));
+                };
+
+                checkServer(); // Verificar inmediatamente
+                const interval = setInterval(checkServer, 5000); // Verificar cada 5 segundos
+
+                return () => clearInterval(interval);
+            }, []);
+
+            const processFile = async (file) => {
+                setLoading(true);
+
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('vector_type', vectorType);
+                formData.append('vectorize', shouldVectorize.toString());
+
+                try {
+                    const response = await fetch(`${API_URL}/process_excel`, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        // Validar que los datos tengan coordenadas válidas
+                        const validKeywords = result.keywords.filter(k =>
+                            k.x !== undefined && k.y !== undefined &&
+                            !isNaN(k.x) && !isNaN(k.y)
+                        );
+
+                        if (validKeywords.length === 0) {
+                            alert('Error: El archivo procesado no contiene coordenadas UMAP válidas');
+                            return;
+                        }
+
+                        setData(validKeywords);
+                        setCentroids(result.centroids || []);
+                        const topics = new Set(result.topics || []);
+                        setSelectedTopics(topics);
+                        console.log('Datos recibidos:', validKeywords.length, 'keywords válidos');
+                        console.log('Centroides:', result.centroids?.length || 0);
+                    } else {
+                        alert('Error: ' + result.error);
+                    }
+                } catch (error) {
+                    alert('Error conectando con el servidor Python: ' + error.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const handleFileUpload = async (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                setFileName(file.name);
+                setCurrentFile(file);
+                await processFile(file);
+            };
+
+            // Reprocesar archivo cuando cambia el vector_type
+            useEffect(() => {
+                if (currentFile && !loading) {
+                    console.log('Reprocesando archivo con vector_type:', vectorType);
+                    processFile(currentFile);
+                }
+            }, [vectorType]);
+
+            // Cleanup de timeout al desmontar
+            useEffect(() => {
+                return () => {
+                    if (hoverTimeoutRef.current) {
+                        clearTimeout(hoverTimeoutRef.current);
+                    }
+                };
+            }, []);
+
+            const filteredData = useMemo(() => {
+                return data.filter(d => selectedTopics.has(d.topic));
+            }, [data, selectedTopics]);
+
+            const topics = useMemo(() => {
+                return [...new Set(data.map(d => d.topic))].sort();
+            }, [data]);
+
+            const toggleTopic = (topic) => {
+                const newSelected = new Set(selectedTopics);
+                if (newSelected.has(topic)) {
+                    newSelected.delete(topic);
+                } else {
+                    newSelected.add(topic);
+                }
+                setSelectedTopics(newSelected);
+            };
+
+            const handleBubbleHover = (event, bubble) => {
+                // Limpiar timeout previo
+                if (hoverTimeoutRef.current) {
+                    clearTimeout(hoverTimeoutRef.current);
+                    hoverTimeoutRef.current = null;
+                }
+
+                if (event && bubble) {
+                    // Dimensiones del tooltip (aproximadas, aumentado para incluir URL)
+                    const tooltipWidth = 300;
+                    const tooltipHeight = 250;
+                    const offsetX = 15;
+                    const offsetY = 15;
+
+                    // Obtener posición del cursor
+                    const mouseX = event.clientX;
+                    const mouseY = event.clientY;
+
+                    // Calcular posición óptima del tooltip
+                    let x, y;
+
+                    // Decidir si va a la derecha o izquierda del cursor
+                    if (mouseX + offsetX + tooltipWidth > window.innerWidth) {
+                        // No cabe a la derecha, ponerlo a la izquierda
+                        x = mouseX - tooltipWidth - offsetX;
+                    } else {
+                        // Cabe a la derecha
+                        x = mouseX + offsetX;
+                    }
+
+                    // Decidir si va abajo o arriba del cursor
+                    if (mouseY + offsetY + tooltipHeight > window.innerHeight) {
+                        // No cabe abajo, ponerlo arriba
+                        y = mouseY - tooltipHeight - offsetY;
+                    } else {
+                        // Cabe abajo
+                        y = mouseY + offsetY;
+                    }
+
+                    // Asegurar que no se salga de los límites de la ventana
+                    x = Math.max(10, Math.min(x, window.innerWidth - tooltipWidth - 10));
+                    y = Math.max(10, Math.min(y, window.innerHeight - tooltipHeight - 10));
+
+                    setTooltipPos({ x, y });
+                    setHoveredBubble(bubble);
+                } else {
+                    // Delay para ocultar tooltip (evita parpadeos entre burbujas)
+                    hoverTimeoutRef.current = setTimeout(() => {
+                        setHoveredBubble(null);
+                    }, 50);
+                }
+            };
+
+            const addCustomTopic = () => {
+                if (topicInput.trim() && !customTopics.includes(topicInput.trim())) {
+                    setCustomTopics([...customTopics, topicInput.trim()]);
+                    setTopicInput('');
+                }
+            };
+
+            const removeCustomTopic = (topic) => {
+                setCustomTopics(customTopics.filter(t => t !== topic));
+            };
+
+            const vectorizeCustomTopics = async () => {
+                if (customTopics.length === 0) {
+                    alert('Añade al menos un tema general');
+                    return;
+                }
+
+                if (data.length === 0) {
+                    alert('Primero carga un archivo Excel');
+                    return;
+                }
+
+                setLoading(true);
+
+                try {
+                    // Extraer embeddings originales
+                    const response = await fetch(`${API_URL}/vectorize_topics`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            topics: customTopics,
+                            vector_type: vectorType
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        // Validar coordenadas de topics generales
+                        const validTopics = result.general_topics.filter(t =>
+                            t.x !== undefined && t.y !== undefined &&
+                            !isNaN(t.x) && !isNaN(t.y)
+                        );
+
+                        if (validTopics.length === 0) {
+                            alert('Error: No se pudieron vectorizar los topics generales correctamente');
+                            return;
+                        }
+
+                        setGeneralTopics(validTopics);
+                        console.log('Topics generales vectorizados:', validTopics.length);
+                    } else {
+                        alert('Error: ' + result.error);
+                    }
+                } catch (error) {
+                    alert('Error vectorizando topics: ' + error.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="container">
+                    <div className="header">
+                        <h1>🗺️ Topic Map con Centroides</h1>
+                        <p>{fileName || 'UMAP Python + Clustering Semántico'}</p>
+                        {!serverOnline && (
+                            <p style={{marginTop: '10px', color: '#ff6b6b'}}>
+                                ⚠️ Servidor Python no detectado. Ejecuta: python clustering_server.py
+                            </p>
+                        )}
+                    </div>
+
+                    <div className="topic-input-section">
+                        <h3 style={{ marginBottom: '15px', color: '#856404' }}>🎯 Temas Generales Personalizados</h3>
+                        <div className="topic-input-container">
+                            <input
+                                type="text"
+                                className="topic-input"
+                                placeholder='Ej: "Seguros de Salud", "Tecnología", "Finanzas"...'
+                                value={topicInput}
+                                onChange={(e) => setTopicInput(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && addCustomTopic()}
+                            />
+                            <button onClick={addCustomTopic} disabled={!topicInput.trim()}>
+                                ➕ Añadir
+                            </button>
+                            <button onClick={vectorizeCustomTopics} disabled={customTopics.length === 0 || !serverOnline}>
+                                ⭐ Vectorizar y Mostrar
+                            </button>
+                        </div>
+                        {customTopics.length > 0 && (
+                            <div className="topic-chips">
+                                {customTopics.map((topic, idx) => (
+                                    <div key={idx} className="topic-chip">
+                                        {topic}
+                                        <span className="topic-chip-remove" onClick={() => removeCustomTopic(topic)}>
+                                            ✕
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="controls">
+                        <div className="control-group">
+                            <label htmlFor="file-upload">📁 Cargar Excel:</label>
+                            <input
+                                id="file-upload"
+                                type="file"
+                                accept=".xlsx,.xls"
+                                onChange={handleFileUpload}
+                                disabled={!serverOnline}
+                                style={{ padding: '8px', fontSize: '0.95em', cursor: 'pointer' }}
+                            />
+                        </div>
+
+                        <div className="control-group">
+                            <label>
+                                <input
+                                    type="checkbox"
+                                    checked={shouldVectorize}
+                                    onChange={(e) => setShouldVectorize(e.target.checked)}
+                                />
+                                {' '}🔄 Vectorizar Excel
+                            </label>
+                            <small style={{ color: '#6c757d', fontSize: '0.85em' }}>
+                                {shouldVectorize ? 'Se vectorizarán Keywords/Topics/Subtopics' : 'Usar Excel ya vectorizado'}
+                            </small>
+                        </div>
+
+                        <div className="control-group">
+                            <label>🎯 Vector a usar:</label>
+                            <select value={vectorType} onChange={(e) => setVectorType(e.target.value)}>
+                                <option value="keyword">Keywords</option>
+                                <option value="topic">Topics</option>
+                                <option value="subtopic">Subtopics</option>
+                            </select>
+                        </div>
+
+                        <div className="control-group">
+                            <label>
+                                <input
+                                    type="checkbox"
+                                    checked={showCentroids}
+                                    onChange={(e) => setShowCentroids(e.target.checked)}
+                                />
+                                {' '}Mostrar Centroides
+                            </label>
+                        </div>
+
+                        <div className="control-group">
+                            <label>Keywords: {filteredData.length}</label>
+                            <label>Centroides: {centroids.length}</label>
+                        </div>
+                    </div>
+
+                    <div className="chart-container">
+                        {loading ? (
+                            <div className="loading">
+                                {shouldVectorize ? '🔄 Vectorizando Excel y calculando UMAP...' : '🔄 Calculando UMAP y generando centroides...'}
+                                <div style={{ marginTop: '15px', fontSize: '0.9em', color: '#6c757d' }}>
+                                    {shouldVectorize ? 'Esto puede tardar unos minutos según el tamaño del archivo' : 'Procesando embeddings existentes'}
+                                </div>
+                            </div>
+                        ) : data.length === 0 ? (
+                            <div className="loading">
+                                👆 Carga un archivo Excel
+                                <div style={{ marginTop: '15px', fontSize: '0.9em', color: '#6c757d' }}>
+                                    Marca "🔄 Vectorizar Excel" si tu archivo NO tiene embeddings<br />
+                                    El servidor Python calculará UMAP real y centroides de topics
+                                </div>
+                            </div>
+                        ) : (
+                            <TopicMapChart
+                                data={filteredData}
+                                centroids={centroids}
+                                generalTopics={generalTopics}
+                                width={1600}
+                                height={700}
+                                allTopics={topics}
+                                showCentroids={showCentroids}
+                                onBubbleHover={handleBubbleHover}
+                            />
+                        )}
+                    </div>
+
+                    {hoveredBubble && (
+                        <div
+                            className="tooltip-custom"
+                            style={{
+                                position: 'fixed',
+                                left: tooltipPos.x,
+                                top: tooltipPos.y,
+                                pointerEvents: 'none',
+                                zIndex: 1000
+                            }}
+                        >
+                            <div className="keyword">{hoveredBubble.keyword}</div>
+                            <div className="info-row">
+                                <span className="label">Tráfico:</span>
+                                <span className="value">{hoveredBubble.traffic.toLocaleString()}</span>
+                            </div>
+                            <div className="info-row">
+                                <span className="label">Volumen:</span>
+                                <span className="value">{hoveredBubble.volume.toLocaleString()}</span>
+                            </div>
+                            <div className="info-row">
+                                <span className="label">Posición:</span>
+                                <span className="value">#{hoveredBubble.position}</span>
+                            </div>
+                            <div className="info-row">
+                                <span className="label">Dificultad:</span>
+                                <span className="value">{hoveredBubble.kd}%</span>
+                            </div>
+                            <div className="info-row">
+                                <span className="label">Topic:</span>
+                                <span className="value">{hoveredBubble.topic}</span>
+                            </div>
+                            {hoveredBubble.subtopic && (
+                                <div className="info-row">
+                                    <span className="label">Subtopic:</span>
+                                    <span className="value">{hoveredBubble.subtopic}</span>
+                                </div>
+                            )}
+                            {hoveredBubble.url && (
+                                <div className="info-row">
+                                    <span className="label">URL:</span>
+                                    <span className="value" style={{ fontSize: '0.85em', wordBreak: 'break-all' }}>
+                                        {hoveredBubble.url}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    <div className="legend">
+                        <div className="legend-title">📊 Topics - Haz clic para filtrar</div>
+                        <div className="legend-items">
+                            {topics.map(topic => {
+                                const count = data.filter(d => d.topic === topic).length;
+                                const centroid = centroids.find(c => c.topic === topic);
+                                return (
+                                    <div
+                                        key={topic}
+                                        className={`legend-item ${!selectedTopics.has(topic) ? 'inactive' : ''}`}
+                                        onClick={() => toggleTopic(topic)}
+                                    >
+                                        <div
+                                            className="legend-color"
+                                            style={{ backgroundColor: getTopicColor(topic, topics) }}
+                                        />
+                                        <span className="legend-label">
+                                            {topic} ({count})
+                                            {centroid && ` - Dispersión: ${centroid.dispersion.toFixed(2)}`}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>

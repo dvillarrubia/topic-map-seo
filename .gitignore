@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environments
+.env
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Excel files (datos sensibles)
+*.xlsx
+*.xls
+!example_data.xlsx
+
+# Modelos descargados
+models/
+
+# Logs
+*.log
+
+# Cache de sentence-transformers
+~/.cache/torch/

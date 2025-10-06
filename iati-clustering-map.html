@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa de Clustering - IATI Seguros</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+        
+        .controls {
+            padding: 30px 40px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: center;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .control-group label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.9em;
+        }
+        
+        .control-group select,
+        .control-group input {
+            padding: 10px 15px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 1em;
+            background: white;
+            transition: all 0.3s;
+        }
+        
+        .control-group select:focus,
+        .control-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            min-width: 150px;
+        }
+        
+        .stat-card .label {
+            font-size: 0.85em;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+        
+        .stat-card .value {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #667eea;
+        }
+        
+        .chart-container {
+            padding: 40px;
+            min-height: 700px;
+        }
+        
+        .legend {
+            padding: 20px 40px;
+            background: #f8f9fa;
+            border-top: 2px solid #e9ecef;
+        }
+        
+        .legend-title {
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #495057;
+        }
+        
+        .legend-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .legend-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        .legend-item.inactive {
+            opacity: 0.3;
+        }
+        
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+        }
+        
+        .legend-label {
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+        
+        .tooltip-custom {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border: 2px solid #667eea;
+            max-width: 300px;
+        }
+        
+        .tooltip-custom .keyword {
+            font-weight: 700;
+            font-size: 1.1em;
+            color: #667eea;
+            margin-bottom: 10px;
+            word-break: break-word;
+        }
+        
+        .tooltip-custom .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 0.9em;
+        }
+        
+        .tooltip-custom .info-row:last-child {
+            border-bottom: none;
+        }
+        
+        .tooltip-custom .label {
+            color: #6c757d;
+            font-weight: 500;
+        }
+        
+        .tooltip-custom .value {
+            font-weight: 600;
+            color: #212529;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 60px;
+            font-size: 1.2em;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        const TOPIC_COLORS = {
+            'Miscellaneous': '#667eea',
+            'Insurance': '#f093fb',
+            'Health': '#4facfe',
+            'Travel': '#43e97b',
+            'Life': '#fa709a',
+            'Home': '#feca57',
+            'Car': '#ff6b6b',
+            'Default': '#95a5a6'
+        };
+
+        function BubbleChart({ data, width, height, onBubbleHover }) {
+            const svgRef = useRef();
+            
+            useEffect(() => {
+                if (!data || data.length === 0) return;
+                
+                const svg = d3.select(svgRef.current);
+                svg.selectAll('*').remove();
+                
+                const margin = { top: 40, right: 60, bottom: 60, left: 80 };
+                const innerWidth = width - margin.left - margin.right;
+                const innerHeight = height - margin.top - margin.bottom;
+                
+                const g = svg.append('g')
+                    .attr('transform', `translate(${margin.left},${margin.top})`);
+                
+                // Escalas
+                const xScale = d3.scaleLinear()
+                    .domain([0, d3.max(data, d => d.positionInverted) * 1.1])
+                    .range([0, innerWidth]);
+                
+                const yScale = d3.scaleLinear()
+                    .domain([0, d3.max(data, d => d.volume) * 1.1])
+                    .range([innerHeight, 0]);
+                
+                const sizeScale = d3.scaleSqrt()
+                    .domain([0, d3.max(data, d => d.score)])
+                    .range([4, 40]);
+                
+                // Grid
+                g.append('g')
+                    .attr('class', 'grid')
+                    .attr('transform', `translate(0,${innerHeight})`)
+                    .call(d3.axisBottom(xScale).tickSize(-innerHeight).tickFormat(''))
+                    .style('stroke', '#e0e0e0')
+                    .style('stroke-dasharray', '3,3');
+                
+                g.append('g')
+                    .attr('class', 'grid')
+                    .call(d3.axisLeft(yScale).tickSize(-innerWidth).tickFormat(''))
+                    .style('stroke', '#e0e0e0')
+                    .style('stroke-dasharray', '3,3');
+                
+                // Ejes
+                g.append('g')
+                    .attr('transform', `translate(0,${innerHeight})`)
+                    .call(d3.axisBottom(xScale))
+                    .style('font-size', '12px');
+                
+                g.append('g')
+                    .call(d3.axisLeft(yScale))
+                    .style('font-size', '12px');
+                
+                // Labels de ejes
+                g.append('text')
+                    .attr('x', innerWidth / 2)
+                    .attr('y', innerHeight + 45)
+                    .attr('text-anchor', 'middle')
+                    .style('font-weight', '600')
+                    .style('font-size', '14px')
+                    .text('Mejor Posición →');
+                
+                g.append('text')
+                    .attr('transform', 'rotate(-90)')
+                    .attr('x', -innerHeight / 2)
+                    .attr('y', -55)
+                    .attr('text-anchor', 'middle')
+                    .style('font-weight', '600')
+                    .style('font-size', '14px')
+                    .text('Volumen de Búsqueda');
+                
+                // Burbujas
+                const bubbles = g.selectAll('.bubble')
+                    .data(data)
+                    .enter()
+                    .append('circle')
+                    .attr('class', 'bubble')
+                    .attr('cx', d => xScale(d.positionInverted))
+                    .attr('cy', d => yScale(d.volume))
+                    .attr('r', d => sizeScale(d.score))
+                    .attr('fill', d => TOPIC_COLORS[d.topic] || TOPIC_COLORS.Default)
+                    .attr('opacity', 0.7)
+                    .attr('stroke', d => TOPIC_COLORS[d.topic] || TOPIC_COLORS.Default)
+                    .attr('stroke-width', 2)
+                    .style('cursor', 'pointer')
+                    .on('mouseover', function(event, d) {
+                        d3.select(this)
+                            .transition()
+                            .duration(200)
+                            .attr('opacity', 1)
+                            .attr('stroke-width', 3);
+                        onBubbleHover(event, d);
+                    })
+                    .on('mouseout', function() {
+                        d3.select(this)
+                            .transition()
+                            .duration(200)
+                            .attr('opacity', 0.7)
+                            .attr('stroke-width', 2);
+                        onBubbleHover(null, null);
+                    });
+                
+            }, [data, width, height]);
+            
+            return <svg ref={svgRef} width={width} height={height} />;
+        }
+
+        function App() {
+            const [data, setData] = useState([]);
+            const [loading, setLoading] = useState(false);
+            const [selectedTopics, setSelectedTopics] = useState(new Set());
+            const [minTraffic, setMinTraffic] = useState(0);
+            const [sortBy, setSortBy] = useState('score');
+            const [hoveredBubble, setHoveredBubble] = useState(null);
+            const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+            const [fileName, setFileName] = useState('');
+
+            const processExcelData = (arrayBuffer) => {
+                try {
+                    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+                    const processedData = jsonData.map((row, index) => {
+                        const positionScore = Math.max(0, 101 - (row.Position || 0));
+                        const trafficScore = row.Traffic || 0;
+                        const volumeScore = Math.log((row.Volume || 0) + 1) * 10;
+                        const score = (trafficScore * 2) + (positionScore * 1) + (volumeScore * 0.5);
+
+                        return {
+                            id: index,
+                            keyword: row.Keyword || '',
+                            traffic: row.Traffic || 0,
+                            volume: row.Volume || 0,
+                            position: row.Position || 0,
+                            kd: row.KD || 0,
+                            topic: row.Topic || 'Miscellaneous',
+                            subtopic: row.Subtopic || '',
+                            url: row.URL || '',
+                            positionInverted: 101 - (row.Position || 0),
+                            score: score
+                        };
+                    });
+
+                    setData(processedData);
+                    const topics = new Set(processedData.map(d => d.topic));
+                    setSelectedTopics(topics);
+                    setLoading(false);
+                } catch (error) {
+                    console.error('Error processing Excel data:', error);
+                    alert('Error al procesar el archivo Excel. Por favor verifica que tenga las columnas correctas: Keyword, Traffic, Volume, Position, KD, Topic, Subtopic, URL');
+                    setLoading(false);
+                }
+            };
+
+            const handleFileUpload = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                setFileName(file.name);
+                setLoading(true);
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    processExcelData(e.target.result);
+                };
+                reader.onerror = () => {
+                    alert('Error al leer el archivo');
+                    setLoading(false);
+                };
+                reader.readAsArrayBuffer(file);
+            };
+
+            const filteredData = useMemo(() => {
+                let filtered = data.filter(d => 
+                    selectedTopics.has(d.topic) && d.traffic >= minTraffic
+                );
+                
+                if (sortBy === 'traffic') {
+                    filtered = [...filtered].sort((a, b) => b.traffic - a.traffic);
+                } else if (sortBy === 'position') {
+                    filtered = [...filtered].sort((a, b) => a.position - b.position);
+                } else {
+                    filtered = [...filtered].sort((a, b) => b.score - a.score);
+                }
+                
+                return filtered;
+            }, [data, selectedTopics, minTraffic, sortBy]);
+
+            const topics = useMemo(() => {
+                return [...new Set(data.map(d => d.topic))].sort();
+            }, [data]);
+
+            const stats = useMemo(() => {
+                return {
+                    total: filteredData.length,
+                    totalTraffic: filteredData.reduce((sum, d) => sum + d.traffic, 0),
+                    avgPosition: Math.round(filteredData.reduce((sum, d) => sum + d.position, 0) / filteredData.length) || 0
+                };
+            }, [filteredData]);
+
+            const toggleTopic = (topic) => {
+                const newSelected = new Set(selectedTopics);
+                if (newSelected.has(topic)) {
+                    newSelected.delete(topic);
+                } else {
+                    newSelected.add(topic);
+                }
+                setSelectedTopics(newSelected);
+            };
+
+            const handleBubbleHover = (event, bubble) => {
+                if (event && bubble) {
+                    setTooltipPos({ x: event.pageX, y: event.pageY });
+                    setHoveredBubble(bubble);
+                } else {
+                    setHoveredBubble(null);
+                }
+            };
+
+            return (
+                <div className="container">
+                    <div className="header">
+                        <h1>🎯 Mapa de Clustering SEO</h1>
+                        <p>{fileName ? `Archivo: ${fileName}` : 'Análisis de Keywords - Carga un archivo Excel'}</p>
+                    </div>
+
+                    <div className="controls">
+                        <div className="control-group">
+                            <label htmlFor="file-upload">📁 Cargar archivo Excel:</label>
+                            <input
+                                id="file-upload"
+                                type="file"
+                                accept=".xlsx,.xls"
+                                onChange={handleFileUpload}
+                                style={{ padding: '8px', fontSize: '0.95em', cursor: 'pointer' }}
+                            />
+                        </div>
+
+                        <div className="control-group">
+                            <label>Ordenar por:</label>
+                            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                                <option value="score">Score Combinado</option>
+                                <option value="traffic">Tráfico</option>
+                                <option value="position">Mejor Posición</option>
+                            </select>
+                        </div>
+
+                        <div className="control-group">
+                            <label>Tráfico mínimo:</label>
+                            <input
+                                type="number"
+                                value={minTraffic}
+                                onChange={(e) => setMinTraffic(parseInt(e.target.value) || 0)}
+                                min="0"
+                                placeholder="0"
+                            />
+                        </div>
+
+                        <div className="stats">
+                            <div className="stat-card">
+                                <div className="label">Keywords</div>
+                                <div className="value">{stats.total}</div>
+                            </div>
+                            <div className="stat-card">
+                                <div className="label">Tráfico Total</div>
+                                <div className="value">{stats.totalTraffic.toLocaleString()}</div>
+                            </div>
+                            <div className="stat-card">
+                                <div className="label">Posición Promedio</div>
+                                <div className="value">#{stats.avgPosition}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="chart-container">
+                        {loading ? (
+                            <div className="loading">Procesando archivo Excel...</div>
+                        ) : data.length === 0 ? (
+                            <div className="loading">
+                                👆 Selecciona un archivo Excel para comenzar
+                                <div style={{ marginTop: '20px', fontSize: '0.9em', color: '#6c757d' }}>
+                                    El archivo debe contener las columnas: Keyword, Traffic, Volume, Position, KD, Topic, Subtopic, URL
+                                </div>
+                            </div>
+                        ) : (
+                            <BubbleChart
+                                data={filteredData}
+                                width={1400}
+                                height={600}
+                                onBubbleHover={handleBubbleHover}
+                            />
+                        )}
+                    </div>
+
+                    {hoveredBubble && (
+                        <div 
+                            className="tooltip-custom" 
+                            style={{ 
+                                position: 'fixed', 
+                                left: tooltipPos.x + 10, 
+                                top: tooltipPos.y + 10,
+                                pointerEvents: 'none',
+                                zIndex: 1000
+                            }}
+                        >
+                            <div className="keyword">{hoveredBubble.keyword}</div>
+                            <div className="info-row">
+                                <span className="label">Tráfico:</span>
+                                <span className="value">{hoveredBubble.traffic.toLocaleString()}</span>
+                            </div>
+                            <div className="info-row">
+                                <span className="label">Volumen:</span>
+                                <span className="value">{hoveredBubble.volume.toLocaleString()}</span>
+                            </div>
+                            <div className="info-row">
+                                <span className="label">Posición:</span>
+                                <span className="value">#{hoveredBubble.position}</span>
+                            </div>
+                            <div className="info-row">
+                                <span className="label">Dificultad:</span>
+                                <span className="value">{hoveredBubble.kd}%</span>
+                            </div>
+                            <div className="info-row">
+                                <span className="label">Topic:</span>
+                                <span className="value">{hoveredBubble.topic}</span>
+                            </div>
+                            {hoveredBubble.subtopic && (
+                                <div className="info-row">
+                                    <span className="label">Subtopic:</span>
+                                    <span className="value">{hoveredBubble.subtopic}</span>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    <div className="legend">
+                        <div className="legend-title">📊 Topics - Haz clic para filtrar</div>
+                        <div className="legend-items">
+                            {topics.map(topic => {
+                                const count = data.filter(d => d.topic === topic).length;
+                                return (
+                                    <div 
+                                        key={topic}
+                                        className={`legend-item ${!selectedTopics.has(topic) ? 'inactive' : ''}`}
+                                        onClick={() => toggleTopic(topic)}
+                                    >
+                                        <div 
+                                            className="legend-color" 
+                                            style={{ backgroundColor: TOPIC_COLORS[topic] || TOPIC_COLORS.Default }}
+                                        />
+                                        <span className="legend-label">{topic} ({count})</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
